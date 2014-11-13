@@ -1,4 +1,173 @@
 /**
  * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
- */options{  JDK_VERSION = "1.5";  static = true;}PARSER_BEGIN(JRR)
-public class JRR{  public static void main(String args []) throws ParseException  {    JRR parser = new JRR(System.in);    while (true)    {      System.out.println("Reading from standard input...");      System.out.print("Enter an expression like \"1+(2+3)*4;\" :");      try      {        switch (JRR.one_line())        {          case 0 :           System.out.println("OK.");          break;          case 1 :           System.out.println("Goodbye.");          break;          default :           break;        }      }      catch (Exception e)      {        System.out.println("NOK.");        System.out.println(e.getMessage());        JRR.ReInit(System.in);      }      catch (Error e)      {        System.out.println("Oops.");        System.out.println(e.getMessage());        break;      }    }  }}PARSER_END(JRR)SKIP :{  " "| "\r"| "\t"| "\n"}TOKEN : /* OPERATORS */{  < PLUS : "+" >| < MINUS : "-" >| < MULTIPLY : "*" >| < DIVIDE : "/" >}TOKEN :{  < CONSTANT : (< DIGIT >)+ >| < #DIGIT : [ "0"-"9" ] >}int one_line() :{}{  sum() ";"  {    return 0;  }| ";"  {    return 1;  }}void sum() :{}{  term()  (    (      < PLUS >    | < MINUS >    )    term()  )*}void term() :{}{  unary()  (    (      < MULTIPLY >    | < DIVIDE >    )    unary()  )*}void unary() :{}{  < MINUS > element()| element()}void element() :{}{  < CONSTANT >| "(" sum() ")"}
+ */
+options
+{
+  JDK_VERSION = "1.5";
+  static = true;
+}
+
+PARSER_BEGIN(JRR)
+
+public class JRR
+{
+  public static void main(String args []) throws ParseException
+  {
+    JRR parser = new JRR(System.in);
+    while (true)
+    {
+      System.out.println("Reading from standard input...");
+      try
+      {
+        JRR.program();        
+      }
+      catch (Exception e)
+      {
+        System.out.println("NOK.");
+        System.out.println(e.getMessage());
+        JRR.ReInit(System.in);
+      }
+      catch (Error e)
+      {
+        System.out.println("Oops.");
+        System.out.println(e.getMessage());
+        break;
+      }
+    }
+  }
+}
+
+PARSER_END(JRR)
+
+SKIP :
+{
+  " "
+//| "\r"
+| "\t"
+//| "\n"
+}
+
+TOKEN : /* OPERATORS */
+{
+  < ADDOP : ["+","-"] >
+| < UNARYOP : ["-","!"] >
+| < MULOP : ["*","/","%"] >
+| < RELOP : < LESSERTHAN >|< GRATERTHAN > >
+| < DIVIDE : "/" >
+| < LBRACE : "{" >
+| < RBRACE : "}" >
+| < LPAREN : "(" >
+| < RPAREN : ")" >
+| < LESSERTHAN : "<" >
+| < GRATERTHAN : ">" >
+}
+
+TOKEN :
+{
+  < ID:  < LETTER >(< LETTER >|< DIGIT >)* >
+| < LETTER: ["a"-"z","A"-"Z","_"]>
+| < INT : (< DIGIT >)+ >
+| < DIGIT : [ "0"-"9" ] >
+}
+
+void primary():
+{}
+{
+< ID >
+| < INT >
+| < LPAREN > expression()< RPAREN >
+}
+
+void factor():
+{}
+{
+primary()
+| < UNARYOP > primary()
+}
+
+void term():
+{}
+{
+factor()
+| term() < MULOP > factor()
+}
+
+void sum():
+{}
+{
+term()
+| sum() < ADDOP > term()
+}
+
+void relation():
+{}
+{
+sum()
+| sum() < RELOP > sum()
+}
+
+void comparison():
+{}
+{
+relation()
+| relation() "==" relation()
+}
+
+void conjunction():
+{}
+{
+comparison()
+| relation() "&" comparison()
+}
+
+void disjunction():
+{}
+{
+conjunction()
+| disjunction() "|" conjunction()
+}
+
+void condition():
+{}
+{
+disjunction()
+| disjunction() "?" expression() ":" condition()
+}
+
+void expression():
+{}
+{
+< ID > "=" expression() 
+|  condition()
+}
+
+void test():
+{}
+{
+< LPAREN > expression() < RPAREN > 
+}
+
+void statement():
+{}
+{
+compound()
+| "while" test() statement()
+| "if" test() statement()("else" statement())?
+| expression()
+| "break"";"
+| "return" expression()";"
+| "continue" ";"
+| ";"
+}
+
+void compound():
+{}
+{
+< LBRACE > (statement())* < RBRACE > 
+}
+
+void program():
+{}
+{
+< LBRACE > (statement())* < RBRACE > 
+}
