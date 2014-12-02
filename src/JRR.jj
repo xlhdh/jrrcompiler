@@ -8,9 +8,11 @@ options
 }
 
 PARSER_BEGIN(JRR)
+import java.util.ArrayList;
 
 public class JRR
 {
+  public static ArrayList<String> symbol_table;
   public static void main(String args []) throws ParseException
   {
     JRR parser = new JRR(System.in);
@@ -19,7 +21,13 @@ public class JRR
       System.out.println("Reading from standard input...");
       try
       {
-        JRR.program();        
+        
+        JRR.symbol_table = new ArrayList<String>();
+        JRR.program();
+        System.out.println("Successful Parsing.");
+		for (String symb: symbol_table)
+			System.out.println("Symbol :"+symb); 
+           
       }
       catch(ParseException e){
         System.out.println("Fail Parsing");
@@ -38,6 +46,7 @@ public class JRR
         System.out.println(e.getMessage());
         break;
       }
+      
     }
   }
 }
@@ -50,6 +59,7 @@ SKIP :
 | "\r"
 | "\t"
 | "\n"
+| <"/*" (~["*"])* "*" ("*" | ~["*","/"] (~["*"])* "*")* "/">
 }
 
 TOKEN : /* OPERATORS */
@@ -181,7 +191,8 @@ void factor():{}
 
 void primary():{}
 {
-  { System.out.println("p1");} < ID >
+  { System.out.println("p1");} < ID >  {
+    symbol_table.add(< ID >);  }
 | { System.out.println("p2");} < INT >
 | { System.out.println("p3");} < LPAREN > expression()< RPAREN > 
 }
