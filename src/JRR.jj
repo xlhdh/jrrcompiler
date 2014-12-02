@@ -21,6 +21,11 @@ public class JRR
       {
         JRR.program();        
       }
+      catch(ParseException e){
+        System.out.println("Fail Parsing");
+        e.printStackTrace();
+        break;
+      }
       catch (Exception e)
       {
         System.out.println("NOK.");
@@ -42,19 +47,19 @@ PARSER_END(JRR)
 SKIP :
 {
   " "
-//| "\r"
+| "\r"
 | "\t"
-//| "\n"
+| "\n"
 }
 
 TOKEN : /* OPERATORS */
 {
-  < ADDOP : ["+","-"] >
-| < UNARYOP : ["-","!"] >
-| < MULOP : ["*","/","%"] >
-| < RELOP : < LESSERTHAN >|< GRATERTHAN > >
-| < DIVIDE : "/" >
-| < LBRACE : "{" >
+//  < ADDOP : ["+","-"] >
+//| < UNARYOP : ["-","!"] >
+//| < MULOP : ["*","/","%"] >
+//| < RELOP : < LESSERTHAN >|< GRATERTHAN > >
+//|
+< LBRACE : "{" >
 | < RBRACE : "}" >
 | < LPAREN : "(" >
 | < RPAREN : ")" >
@@ -62,112 +67,147 @@ TOKEN : /* OPERATORS */
 | < GRATERTHAN : ">" >
 }
 
-TOKEN :
+
+
+TOKEN : // Reserved Words
+{
+  < BREAK:  "break" >
+| < CONTINUE:  "continue" >
+| < ELSE:  "else" >
+| < IF:  "if" >
+| < RETURN:  "return" >
+| < WHILE:  "while" >
+}
+
+TOKEN : // ID and Digits
 {
   < ID:  < LETTER >(< LETTER >|< DIGIT >)* >
-| < LETTER: ["a"-"z","A"-"Z","_"]>
+| < #LETTER: ["a"-"z","A"-"Z","_"]>
 | < INT : (< DIGIT >)+ >
-| < DIGIT : [ "0"-"9" ] >
+| < #DIGIT : [ "0"-"9" ] >
 }
 
-void primary():
-{}
+
+
+
+void program():{}
 {
-< ID >
-| < INT >
-| < LPAREN > expression()< RPAREN >
+ { System.out.println("program1");}< LBRACE > (statement())* < RBRACE > <EOF>
 }
 
-void factor():
-{}
+void compound():{}
 {
-primary()
-| < UNARYOP > primary()
+{ System.out.println("compound1");}< LBRACE > (statement())* < RBRACE > 
 }
 
-void term():
-{}
+void statement():{}
 {
-factor()
-| term() < MULOP > factor()
+  { System.out.println("statement1");} compound() { System.out.println("end1\n");}
+| { System.out.println("statement2");} < WHILE > test() statement() { System.out.println("end2\n");}
+| { System.out.println("statement3");} < IF > test() statement() (LOOKAHEAD(2) < ELSE > statement())? { System.out.println("end3\n");}
+| { System.out.println("statement4");} expression() ";" { System.out.println("end4\n");}
+| { System.out.println("statement5");} < BREAK >";" { System.out.println("end5\n");}
+| { System.out.println("statement6");} < RETURN > expression()";" { System.out.println("end6\n");}
+| { System.out.println("statement7");} < CONTINUE > ";" { System.out.println("end7\n");}
+| { System.out.println("statement8");} ";" { System.out.println("end8\n");}
 }
 
-void sum():
-{}
+void test():{}
 {
-term()
-| sum() < ADDOP > term()
+{ System.out.println("test");} < LPAREN > expression() < RPAREN > 
 }
 
-void relation():
-{}
+void expression():{}
 {
-sum()
-| sum() < RELOP > sum()
+  LOOKAHEAD(2)
+   { System.out.println("expression1");} < ID > "=" expression() 
+|  { System.out.println("expression2");} condition() 
 }
 
-void comparison():
-{}
+void condition():{}
 {
-relation()
-| relation() "==" relation()
+  { System.out.println("cond");} disjunction() ("?" expression() ":" condition() )?
+//  LOOKAHEAD(3)
+//  { System.out.println("cond1");} disjunction() 
+//| { System.out.println("cond2");} disjunction() "?" expression() ":" condition() 
 }
 
-void conjunction():
-{}
+void disjunction():{}
 {
-comparison()
-| relation() "&" comparison()
+{ System.out.println("disj");} conjunction() ("|" conjunction())*  
 }
 
-void disjunction():
-{}
+void conjunction():{}
 {
-conjunction()
-| disjunction() "|" conjunction()
+  //LOOKAHEAD(3)
+  { System.out.println("conj");} comparison() ("&" comparison() )*
+//  { System.out.println("conj1");} comparison() 
+//| { System.out.println("conj2");} conjunction() "&" comparison() 
 }
 
-void condition():
-{}
+void comparison():{}
 {
-disjunction()
-| disjunction() "?" expression() ":" condition()
+  { System.out.println("comp");} relation() ("==" relation() )?
+  //LOOKAHEAD(2)
+//  { System.out.println("comp1");} relation() 
+//| { System.out.println("comp2");} relation() "==" relation() 
 }
 
-void expression():
-{}
+void relation():{}
 {
-< ID > "=" expression() 
-|  condition()
+  { System.out.println("rel");} sum() (relop() sum())?
+  //LOOKAHEAD(2)
+//  { System.out.println("rel1");} sum() 
+//| { System.out.println("rel2");} sum() < RELOP > sum()
+
 }
 
-void test():
-{}
+void sum():{}
 {
-< LPAREN > expression() < RPAREN > 
+{ System.out.println("sum");} term()( addop() term())*
 }
 
-void statement():
-{}
+void term():{}
 {
-compound()
-| "while" test() statement()
-| "if" test() statement()("else" statement())?
-| expression()
-| "break"";"
-| "return" expression()";"
-| "continue" ";"
-| ";"
+{ System.out.println("term");} factor() (mulop() factor())*
 }
 
-void compound():
-{}
+void factor():{}
 {
-< LBRACE > (statement())* < RBRACE > 
+  { System.out.println("fact1");} primary()
+| { System.out.println("fact2");} unaryop() primary()
+}
+// E: E+T|T  becomes E: T(+T)*
+
+void primary():{}
+{
+  { System.out.println("p1");} < ID >
+| { System.out.println("p2");} < INT >
+| { System.out.println("p3");} < LPAREN > expression()< RPAREN > 
 }
 
-void program():
-{}
+void relop():{}
 {
-< LBRACE > (statement())* < RBRACE > 
+  { System.out.println("r1");} < LESSERTHAN >
+| { System.out.println("r2");} < GRATERTHAN >
 }
+
+void mulop():{}
+{
+  { System.out.println("m1");} "*"
+| { System.out.println("m2");} "/"
+| { System.out.println("m3");} "%"
+}
+
+void addop():{}
+{
+  { System.out.println("a1");} "-"
+| { System.out.println("a2");} "+"
+}
+
+void unaryop():{}
+{
+  { System.out.println("u1");} "-"
+| { System.out.println("u2");} "!"
+}
+
