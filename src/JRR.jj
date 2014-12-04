@@ -16,7 +16,7 @@ class Quad{	Object op, arg1, arg2, result;
 	  arg1 = a1;
 	  arg2 = a2;
 	  result = re;
-	  System.out.println(this);
+	  //System.out.println(this);
 	}
 	
 	@Override public String toString()
@@ -137,236 +137,270 @@ TOKEN : // ID and Digits
 }
 
 
-
-
 void program():{}
 {
- { System.out.println("program1");}< LBRACE > (statement())* < RBRACE > <EOF>
+	{ System.out.println("program1");}
+	< LBRACE > (statement())* < RBRACE > <EOF>
 }
 
 void compound():{}
 {
-{ System.out.println("compound1");}< LBRACE > (statement())* < RBRACE > 
+	{ System.out.println("compound1");}
+	< LBRACE > (statement())* < RBRACE > 
 }
 
 void statement():{Object a, b, c;}
 {
-   compound() {
-     System.out.println("Stack sta: "+semantic_stack+"1\n");
-     }|
-     //========== WHILE CLAUSE ===========
-   < WHILE >   {
-     pointer_stack.push(quad_list.size());   } test()   {
-     a = semantic_stack.pop();
-     pointer_stack.push(quad_list.size());
-     quad_list.add(new Quad("jeqz",a,null,-1));   } statement() {
-     a = pointer_stack.pop();
-     b = pointer_stack.pop();
-     quad_list.add(new Quad("jmp",null,null,b));
-     quad_list.get((int)a).result = quad_list.size();
-     System.out.println("Stack sta: "+semantic_stack+"2\n");
-     }|
+	//========== COMPOUND ===========
+	compound() {
+		System.out.println("Stack sta: "+semantic_stack+"1\n");
+	}
+	|
+	
+	//========== WHILE CLAUSE ===========
+	< WHILE >	{
+		pointer_stack.push(quad_list.size());	}
+	test()  {
+		a = semantic_stack.pop();
+		pointer_stack.push(quad_list.size());
+		quad_list.add(new Quad("jeqz",a,null,-1));	}
+	statement() {
+		a = pointer_stack.pop();
+		b = pointer_stack.pop();//buybl
+		quad_list.add(new Quad("jmp",null,null,b));
+		quad_list.get((int)a).result = quad_list.size();
+		System.out.println("Stack sta: "+semantic_stack+"2\n");
+	}
+	|
 
-     //========== IF CLAUSE ===========
-   < IF > test()   {
-     a = quad_list.size();
-     b = semantic_stack.pop();
-     quad_list.add(new Quad("jeqz",b,null,-1));
-     pointer_stack.push((int)a);    }statement() (LOOKAHEAD(2) < ELSE >   {
-     a = quad_list.size(); //quad_list.size() MEANS NextQuad
-     quad_list.add(new Quad("jmp",null,null,-1));
-     b = pointer_stack.pop();
-     quad_list.get((int)b).result = quad_list.size();
-     pointer_stack.push((int)a);        } statement())? {
-     a = pointer_stack.pop();
-     quad_list.get((int)a).result = quad_list.size();
-     System.out.println("Stack sta: "+semantic_stack+"3\n");
-     }|
+	//========== IF CLAUSE ===========
+	< IF > test()	{
+		a = quad_list.size();
+		b = semantic_stack.pop();
+		quad_list.add(new Quad("jeqz",b,null,-1));
+		pointer_stack.push((int)a); 	} statement() (LOOKAHEAD(2) < ELSE >   {
+		a = quad_list.size(); //quad_list.size() MEANS NextQuad
+		quad_list.add(new Quad("jmp",null,null,-1));
+		b = pointer_stack.pop();
+		quad_list.get((int)b).result = quad_list.size();
+		pointer_stack.push((int)a);     	} statement())? {
+		a = pointer_stack.pop();
+		quad_list.get((int)a).result = quad_list.size();
+		System.out.println("Stack sta: "+semantic_stack+"3\n");
+	}
+	|
 
-     
-   expression() ";" {
-     semantic_stack.pop();
-     System.out.println("Stack sta: "+semantic_stack+"4\n");
-     }|
-   < BREAK >";" {
-     System.out.println("Stack sta: "+semantic_stack+"5\n");
-     }|
-   < RETURN > expression()";" {
-     System.out.println("Stack sta: "+semantic_stack+"6\n");
-     }|
-   < CONTINUE > ";" {
-     System.out.println("Stack sta: "+semantic_stack+"7\n");
-     }|
-     ";" {
-     System.out.println("Stack sta: "+semantic_stack+"8\n");
-     }
+	//========== EXPRESSION ===========
+	expression() ";" {
+		semantic_stack.pop();
+		System.out.println("Stack sta: "+semantic_stack+"4\n");
+	}
+	|
+
+	//========== BREAK CLAUSE ===========
+	< BREAK >";" { //TODO implement BREAK
+		System.out.println("Stack sta: "+semantic_stack+"5\n");
+	}
+	|
+
+	//========== RETURN CLAUSE ===========
+	< RETURN > expression()";" {
+		a = semantic_stack.pop();
+		quad_list.add(new Quad("ret",null,null,a));
+		System.out.println("Stack sta: "+semantic_stack+"6\n");
+	}
+	|
+	
+	//========== CONTINUE CLAUSE ===========
+	< CONTINUE > ";" {
+		a = pointer_stack.peek();
+		quad_list.add(new Quad("jmp",null,null,a));
+		System.out.println("Stack sta: "+semantic_stack+"7\n");
+	}
+	|
+
+	//========== SEMICOLON ===========
+	";" {
+		System.out.println("Stack sta: "+semantic_stack+"8\n");
+	}
 }
 
 void test():{}
 {
-{ System.out.println("test");} < LPAREN > expression() < RPAREN > 
+	{ System.out.println("test");}
+	< LPAREN > expression() < RPAREN > 
 }
 
 void expression():{} 
 {
-  LOOKAHEAD(2)  
-  { Token id; } id=< ID >	{semantic_stack.push(id.image);} "=" expression() {
-       Object a = semantic_stack.pop(); //the latter
-       Object b = semantic_stack.pop(); //the first (destination)
-       quad_list.add(new Quad("mov",a,null,b));
-       semantic_stack.push(a);
-     }
-|  condition() 
+	LOOKAHEAD(2)  
+	{ Token id; }
+	id=< ID >	{
+	  semantic_stack.push(id.image);
+	}
+	"=" expression() {
+		Object a = semantic_stack.pop(); //the latter
+		Object b = semantic_stack.pop(); //the first (destination)
+		quad_list.add(new Quad("mov",a,null,b));
+		semantic_stack.push(a);
+	}
+	|
+	condition() 
 }
 
 void condition():{Object a, b, c;}
 {
-	disjunction() ("?" 	{
-	 a = quad_list.size();
-     b = semantic_stack.pop();
-     quad_list.add(new Quad("jeqz",b,null,-1));
-     pointer_stack.push((int)a);
-     Object dest = semantic_stack.pop(); // the place to be assigned
+	disjunction() ("?"	{
+		a = quad_list.size();
+		b = semantic_stack.pop();
+		quad_list.add(new Quad("jeqz",b,null,-1));
+		pointer_stack.push((int)a);
+		Object dest = semantic_stack.pop(); // the place to be assigned
 	}
-	expression() ":"	{
-	  c = semantic_stack.peek();
-	  quad_list.add(new Quad("mov",c,null,dest));
-	  a = quad_list.size(); 
-     quad_list.add(new Quad("jmp",null,null,-1));
-     b = pointer_stack.pop();
-     quad_list.get((int)b).result = quad_list.size();
-     pointer_stack.push((int)a);
+	expression() ":"	{
+		c = semantic_stack.peek();
+		quad_list.add(new Quad("mov",c,null,dest));
+		a = quad_list.size(); 
+		quad_list.add(new Quad("jmp",null,null,-1));
+		b = pointer_stack.pop();
+		quad_list.get((int)b).result = quad_list.size();
+		pointer_stack.push((int)a);
 	}
-	condition() 
-	{
-	  c = semantic_stack.pop();
-	  quad_list.add(new Quad("mov",c,null,dest));
-     a = pointer_stack.pop();
-     quad_list.get((int)a).result = quad_list.size();  //idoob
-     semantic_stack.push(dest);
-     }
-     )?
+	condition() 	{
+		c = semantic_stack.pop();
+		quad_list.add(new Quad("mov",c,null,dest));
+		a = pointer_stack.pop();
+		quad_list.get((int)a).result = quad_list.size();  
+		semantic_stack.push(dest);
+	}
+	)?
 }
 
 void disjunction():{}
 {
-	conjunction() ("|" conjunction()
-   {
-     Object a = new Object();
-	 Object b = semantic_stack.pop();
-	 Object c = semantic_stack.pop();
-	 quad_list.add(new Quad("or",c,b,a));
-	 semantic_stack.push(a);
-   }
-   )*  
+	conjunction() ("|" conjunction()	{
+		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad("or",c,b,a));
+		semantic_stack.push(a);
+	}
+	)*  
 }
 
 void conjunction():{}
 {
-  comparison() ("&" comparison()   {
-     Object a = new Object();
-	 Object b = semantic_stack.pop();
-	 Object c = semantic_stack.pop();
-	 quad_list.add(new Quad("and",c,b,a));
-	 semantic_stack.push(a);   }
-   )*
+	comparison() ("&" comparison()	{
+		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad("and",c,b,a));
+		semantic_stack.push(a);	}
+	)*
 }
 
 void comparison():{}
 {
-   relation() ("==" relation()
-{
-  	Object a = new Object();
-	Object b = semantic_stack.pop();
-	Object c = semantic_stack.pop();
-	quad_list.add(new Quad("tst",c,b,a));
-	semantic_stack.push(a);
-}
-)?
- 
+	relation() ("==" relation() {
+  		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad("tst",c,b,a));
+		semantic_stack.push(a);
+	}
+	)? 
 }
 
 void relation():{String op;}
 {
-	sum() (op=relop() sum()
-{
-  	Object a = new Object();
-	Object b = semantic_stack.pop();
-	Object c = semantic_stack.pop();
-	quad_list.add(new Quad(op,c,b,a));
-	semantic_stack.push(a);
-}
-)?
+	sum() (op=relop() sum()	{
+  		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad(op,c,b,a));
+		semantic_stack.push(a);
+	}
+	)?
 }
 
 void sum():{String op;}
 {
-	term()( op=addop() term(){
-  	Object a = new Object();
-	Object b = semantic_stack.pop();
-	Object c = semantic_stack.pop();
-	quad_list.add(new Quad(op,c,b,a));
-	semantic_stack.push(a);}
-)*
+	term()( op=addop() term()	{
+  		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad(op,c,b,a));
+		semantic_stack.push(a);	}
+	)*
 }
 
 void term():{String op;}
 {
-	factor() (op=mulop() factor()
-{	Object a = new Object();
-	Object b = semantic_stack.pop();
-	Object c = semantic_stack.pop();
-	quad_list.add(new Quad(op,c,b,a));
-	semantic_stack.push(a);
-	
-} 
-)*
+	factor() (op=mulop() factor() {		Object a = new Object();
+		Object b = semantic_stack.pop();
+		Object c = semantic_stack.pop();
+		quad_list.add(new Quad(op,c,b,a));
+		semantic_stack.push(a);
+	}
+	)*
 }
 
 void factor():{}
 {
-  primary()
-| unaryop() primary(){	Object a = new Object();
-	Object b = semantic_stack.pop();
-	quad_list.add(new Quad("neg",b,null,a));
-	semantic_stack.push(a);
-	//System.out.println("Stack fac: "+semantic_stack);
-}
+	primary()
+	|
+	unaryop() primary() {		Object a = new Object();
+		Object b = semantic_stack.pop();
+		quad_list.add(new Quad("neg",b,null,a));
+		semantic_stack.push(a);
+		//System.out.println("Stack fac: "+semantic_stack);
+	}
 }
 
 void primary():{}
 {  
-  { Token id; } id = < ID >  {
-    if (!symbol_table.contains(id.image))
-      symbol_table.add(id.image);
-    semantic_stack.push(id.image);}
-| { Token i;} i = < INT >	{  semantic_stack.push(Integer.parseInt(i.image));}
-| < LPAREN > expression()< RPAREN > 
+	{ Token id; }
+	id = < ID >  {
+	if (!symbol_table.contains(id.image))
+		symbol_table.add(id.image);
+    semantic_stack.push(id.image);
+    }
+    |
+    {Token i;}
+    i = < INT >	{		semantic_stack.push(Integer.parseInt(i.image));
+	}
+	|
+	< LPAREN > expression() < RPAREN > 
 }
 
 String relop():{}
 {
-  < LESSERTHAN >{return "LT";}
-| < GRATERTHAN >{return "GT";}
+	< LESSERTHAN >{return "LT";}
+	|
+	< GRATERTHAN >{return "GT";}
 }
 
 String mulop():{}
 {
-  "*"  {return "*";}
-| "/"  {return "/";}
-| "%"  {return "%";}
+	"*"  {return "*";}
+	|
+	"/"  {return "/";}
+	|
+	"%"  {return "%";}
 }
 
 String addop():{}
 {
-  "-"{return "-";}
-| "+"{return "+";}
+	"-"{return "-";}
+	|
+	"+"{return "+";}
 }
 
 String unaryop():{}
 {
-  "-"{return "-";}
-| "!"{return "!";}
+	"-"{return "-";}
+	|
+	"!"{return "!";}
 }
 
 // E: E+T|T  becomes E: T(+T)*
