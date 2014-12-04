@@ -166,7 +166,7 @@ void statement():{Object a, b, c;}
 		quad_list.add(new Quad("jeqz",a,null,-1));	}
 	statement() {
 		a = pointer_stack.pop();
-		b = pointer_stack.pop();//buybl
+		b = pointer_stack.pop();
 		quad_list.add(new Quad("jmp",null,null,b));
 		quad_list.get((int)a).result = quad_list.size();
 		System.out.println("Stack sta: "+semantic_stack+"2\n");
@@ -199,6 +199,11 @@ void statement():{Object a, b, c;}
 
 	//========== BREAK CLAUSE ===========
 	< BREAK >";" { //TODO implement BREAK
+		a = pointer_stack.pop();
+		b = quad_list.size();
+		quad_list.add(new Quad("jmp",null,null,a));
+		quad_list.get((int)a).result = b;
+		pointer_stack.push((int)b);
 		System.out.println("Stack sta: "+semantic_stack+"5\n");
 	}
 	|

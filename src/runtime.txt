@@ -1,0 +1,207 @@
+tucl331017:bin yizhouhu$ java JRR < test.txt 
+Reading from standard input...
+program1
+Stack sta: []4
+
+Stack sta: []4
+
+Stack sta: []4
+
+Stack sta: []4
+
+Stack sta: []4
+
+test
+Stack sta: []4
+
+Stack sta: []3
+
+test
+compound1
+Stack sta: []4
+
+Stack sta: []4
+
+Stack sta: []1
+
+compound1
+Stack sta: []4
+
+Stack sta: []8
+
+Stack sta: []1
+
+Stack sta: []3
+
+test
+test
+test
+Stack sta: []4
+
+Stack sta: []8
+
+Stack sta: []3
+
+Stack sta: []4
+
+Stack sta: []3
+
+Stack sta: []3
+
+test
+compound1
+Stack sta: []4
+
+test
+Stack sta: []5
+
+Stack sta: []3
+
+test
+compound1
+Stack sta: []4
+
+test
+Stack sta: []5
+
+Stack sta: []7
+
+Stack sta: []3
+
+Stack sta: []4
+
+Stack sta: []1
+
+Stack sta: []2
+
+test
+Stack sta: []6
+
+Stack sta: []3
+
+test
+Stack sta: []5
+
+Stack sta: []3
+
+Stack sta: []4
+
+test
+Stack sta: []5
+
+Stack sta: []3
+
+Stack sta: []4
+
+Stack sta: []1
+
+Stack sta: []2
+
+Successful Parsing.
+
+------------------Symbol Table------------------
+Symbol :a
+Symbol :b
+Symbol :c
+Symbol :d
+Symbol :e
+
+------------------Stack------------------
+Semantic Stack: []
+Pointer Stack: []
+
+------------------Quads------------------
+Quad :0	>mov<	>0<	>NULL<	>a
+Quad :1	>+<	>5<	>a<	>java.lang.Object@7f31245a
+Quad :2	>mov<	>java.lang.Object@7f31245a<	>NULL<	>b
+Quad :3	>*<	>15<	>b<	>java.lang.Object@6d6f6e28
+Quad :4	>/<	>a<	>13<	>java.lang.Object@135fbaa4
+Quad :5	>-<	>java.lang.Object@6d6f6e28<	>java.lang.Object@135fbaa4<	>java.lang.Object@45ee12a7
+Quad :6	>mov<	>java.lang.Object@45ee12a7<	>NULL<	>c
+Quad :7	>+<	>c<	>2<	>java.lang.Object@330bedb4
+Quad :8	>*<	>10<	>java.lang.Object@330bedb4<	>java.lang.Object@2503dbd3
+Quad :9	>/<	>java.lang.Object@2503dbd3<	>7<	>java.lang.Object@4b67cf4d
+Quad :10	>-<	>b<	>java.lang.Object@4b67cf4d<	>java.lang.Object@7ea987ac
+Quad :11	>*<	>3<	>java.lang.Object@7ea987ac<	>java.lang.Object@12a3a380
+Quad :12	>%<	>java.lang.Object@12a3a380<	>9<	>java.lang.Object@29453f44
+Quad :13	>+<	>a<	>java.lang.Object@29453f44<	>java.lang.Object@5cad8086
+Quad :14	>mov<	>java.lang.Object@5cad8086<	>NULL<	>d
+Quad :15	>mov<	>1<	>NULL<	>f
+Quad :16	>*<	>2<	>1<	>java.lang.Object@6e0be858
+Quad :17	>mov<	>java.lang.Object@6e0be858<	>NULL<	>e
+Quad :18	>LT<	>b<	>d<	>java.lang.Object@61bbe9ba
+Quad :19	>jeqz<	>java.lang.Object@61bbe9ba<	>NULL<	>22
+Quad :20	>neg<	>1<	>NULL<	>java.lang.Object@610455d6
+Quad :21	>mov<	>java.lang.Object@610455d6<	>NULL<	>b
+Quad :22	>GT<	>a<	>10<	>java.lang.Object@511d50c0
+Quad :23	>LT<	>b<	>3<	>java.lang.Object@60e53b93
+Quad :24	>neg<	>java.lang.Object@60e53b93<	>NULL<	>java.lang.Object@5e2de80c
+Quad :25	>and<	>java.lang.Object@511d50c0<	>java.lang.Object@5e2de80c<	>java.lang.Object@1d44bcfa
+Quad :26	>jeqz<	>java.lang.Object@1d44bcfa<	>NULL<	>30
+Quad :27	>mov<	>a<	>NULL<	>e
+Quad :28	>mov<	>329873456<	>NULL<	>f
+Quad :29	>jmp<	>NULL<	>NULL<	>32
+Quad :30	>*<	>b<	>c<	>java.lang.Object@266474c2
+Quad :31	>mov<	>java.lang.Object@266474c2<	>NULL<	>a
+Quad :32	>tst<	>a<	>b<	>java.lang.Object@6f94fa3e
+Quad :33	>jeqz<	>java.lang.Object@6f94fa3e<	>NULL<	>43
+Quad :34	>LT<	>b<	>c<	>java.lang.Object@5e481248
+Quad :35	>jeqz<	>java.lang.Object@5e481248<	>NULL<	>42
+Quad :36	>GT<	>d<	>0<	>java.lang.Object@66d3c617
+Quad :37	>jeqz<	>java.lang.Object@66d3c617<	>NULL<	>41
+Quad :38	>neg<	>13<	>NULL<	>java.lang.Object@63947c6b
+Quad :39	>mov<	>java.lang.Object@63947c6b<	>NULL<	>e
+Quad :40	>jmp<	>NULL<	>NULL<	>41
+Quad :41	>jmp<	>NULL<	>NULL<	>43
+Quad :42	>mov<	>1<	>NULL<	>a
+Quad :43	>LT<	>b<	>0<	>java.lang.Object@2b193f2d
+Quad :44	>GT<	>c<	>13<	>java.lang.Object@355da254
+Quad :45	>or<	>java.lang.Object@2b193f2d<	>java.lang.Object@355da254<	>java.lang.Object@4dc63996
+Quad :46	>jeqz<	>java.lang.Object@4dc63996<	>NULL<	>78
+Quad :47	>LT<	>a<	>b<	>java.lang.Object@d716361
+Quad :48	>jeqz<	>java.lang.Object@d716361<	>NULL<	>51
+Quad :49	>mov<	>5<	>NULL<	>d
+Quad :50	>jmp<	>NULL<	>NULL<	>52
+Quad :51	>mov<	>1<	>NULL<	>d
+Quad :52	>mov<	>d<	>NULL<	>5
+Quad :53	>jeqz<	>c<	>NULL<	>54
+Quad :54	>jmp<	>NULL<	>NULL<	>55
+Quad :55	>GT<	>b<	>0<	>java.lang.Object@6ff3c5b5
+Quad :56	>jeqz<	>java.lang.Object@6ff3c5b5<	>NULL<	>64
+Quad :57	>mov<	>1<	>NULL<	>a
+Quad :58	>jeqz<	>e<	>NULL<	>59
+Quad :59	>jmp<	>NULL<	>NULL<	>61
+Quad :60	>jmp<	>NULL<	>NULL<	>62
+Quad :61	>jmp<	>NULL<	>NULL<	>60
+Quad :62	>mov<	>5<	>NULL<	>b
+Quad :63	>jmp<	>NULL<	>NULL<	>55
+Quad :64	>-<	>a<	>1<	>java.lang.Object@3764951d
+Quad :65	>jeqz<	>java.lang.Object@3764951d<	>NULL<	>68
+Quad :66	>+<	>a<	>b<	>java.lang.Object@4b1210ee
+Quad :67	>ret<	>NULL<	>NULL<	>java.lang.Object@4b1210ee
+Quad :68	>jeqz<	>d<	>NULL<	>69
+Quad :69	>jmp<	>NULL<	>NULL<	>70
+Quad :70	>mov<	>37<	>NULL<	>c
+Quad :71	>tst<	>a<	>c<	>java.lang.Object@4d7e1886
+Quad :72	>jeqz<	>java.lang.Object@4d7e1886<	>NULL<	>73
+Quad :73	>jmp<	>NULL<	>NULL<	>74
+Quad :74	>+<	>a<	>2<	>java.lang.Object@3cd1a2f1
+Quad :75	>neg<	>java.lang.Object@3cd1a2f1<	>NULL<	>java.lang.Object@2f0e140b
+Quad :76	>mov<	>java.lang.Object@2f0e140b<	>NULL<	>b
+Quad :77	>jmp<	>NULL<	>NULL<	>43
+Reading from standard input...
+program1
+Fail Parsing
+ParseException: Encountered "<EOF>" at line 41, column 2.
+Was expecting:
+    "{" ...
+    
+ParseException: Encountered "<EOF>" at line 41, column 2.
+Was expecting:
+    "{" ...
+    
+	at JRR.generateParseException(JRR.java:1039)
+	at JRR.jj_consume_token(JRR.java:921)
+	at JRR.program(JRR.java:86)
+	at JRR.main(JRR.java:47)
+tucl331017:bin yizhouhu$ 
