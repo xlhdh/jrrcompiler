@@ -39,7 +39,9 @@ public class JRR
   public static ArrayList<String> symbol_table;
   public static ArrayList<Quad> quad_list;
   public static Stack<Object> semantic_stack;
-  public static Stack<Integer> pointer_stack;
+  public static Stack<Integer> cdtn_stack;
+  public static Stack<Integer> loop_stack;
+  
   public static void main(String args []) throws ParseException
   {
     JRR parser = new JRR(System.in);
@@ -49,7 +51,8 @@ public class JRR
       try
       {
         JRR.semantic_stack = new Stack<Object>();
-        JRR.pointer_stack = new Stack<Integer>();
+        JRR.cdtn_stack = new Stack<Integer>();
+        JRR.loop_stack = new Stack<Integer>();
         JRR.quad_list = new ArrayList<Quad>();
         JRR.symbol_table = new ArrayList<String>();
         JRR.program();
@@ -59,7 +62,8 @@ public class JRR
 			System.out.println("Symbol :"+symb);
 		System.out.println("\n------------------Stack------------------");
 		System.out.println("Semantic Stack: "+semantic_stack);
-		System.out.println("Pointer Stack: "+semantic_stack);
+		System.out.println("Cdtn Stack: "+cdtn_stack);
+		System.out.println("Loop Stack: "+loop_stack);
 		//while (!semantic_stack.empty())
 		//	System.out.println("Stack Item :"+semantic_stack.pop().toString());
 		System.out.println("\n------------------Quads------------------");
@@ -75,13 +79,13 @@ public class JRR
       }
       catch (Exception e)
       {
-        System.out.println("NOK. Other Exception. ");
+        System.out.println("Exception. ");
         e.printStackTrace();
         JRR.ReInit(System.in);
       }
       catch (Error e)
       {
-        System.out.println("Oops. Error.");
+        System.out.println("Error.");
         System.out.println(e.getMessage());
         break;
       }
@@ -140,7 +144,9 @@ TOKEN : // ID and Digits
 void program():{}
 {
 	{ System.out.println("program1");}
-	< LBRACE > (statement())* < RBRACE > <EOF>
+	< LBRACE > (statement())* < RBRACE > <EOF>	{
+		quad_list.add(new Quad("exit",null,null,null));	}
+	
 }
 
 void compound():{}
@@ -159,14 +165,14 @@ void statement():{Object a, b, c;}
 	
 	//========== WHILE CLAUSE ===========
 	< WHILE >	{
-		pointer_stack.push(quad_list.size());	}
+		loop_stack.push(quad_list.size());	}
 	test()  {
 		a = semantic_stack.pop();
-		pointer_stack.push(quad_list.size());
+		loop_stack.push(quad_list.size());
 		quad_list.add(new Quad("jeqz",a,null,-1));	}
 	statement() {
-		a = pointer_stack.pop();
-		b = pointer_stack.pop();
+		a = loop_stack.pop(); // where loop body(conditional jump) starts
+		b = loop_stack.pop(); // where loop testing block starts 
 		quad_list.add(new Quad("jmp",null,null,b));
 		quad_list.get((int)a).result = quad_list.size();
 		System.out.println("Stack sta: "+semantic_stack+"2\n");
@@ -178,13 +184,13 @@ void statement():{Object a, b, c;}
 		a = quad_list.size();
 		b = semantic_stack.pop();
 		quad_list.add(new Quad("jeqz",b,null,-1));
-		pointer_stack.push((int)a); 	} statement() (LOOKAHEAD(2) < ELSE >   {
+		cdtn_stack.push((int)a); 	} statement() (LOOKAHEAD(2) < ELSE >   {
 		a = quad_list.size(); //quad_list.size() MEANS NextQuad
 		quad_list.add(new Quad("jmp",null,null,-1));
-		b = pointer_stack.pop();
+		b = cdtn_stack.pop();
 		quad_list.get((int)b).result = quad_list.size();
-		pointer_stack.push((int)a);     	} statement())? {
-		a = pointer_stack.pop();
+		cdtn_stack.push((int)a);     	} statement())? {
+		a = cdtn_stack.pop();
 		quad_list.get((int)a).result = quad_list.size();
 		System.out.println("Stack sta: "+semantic_stack+"3\n");
 	}
@@ -199,11 +205,11 @@ void statement():{Object a, b, c;}
 
 	//========== BREAK CLAUSE ===========
 	< BREAK >";" { //TODO implement BREAK
-		a = pointer_stack.pop();
+		a = loop_stack.pop();
 		b = quad_list.size();
 		quad_list.add(new Quad("jmp",null,null,a));
 		quad_list.get((int)a).result = b;
-		pointer_stack.push((int)b);
+		loop_stack.push((int)b);
 		System.out.println("Stack sta: "+semantic_stack+"5\n");
 	}
 	|
@@ -218,7 +224,9 @@ void statement():{Object a, b, c;}
 	
 	//========== CONTINUE CLAUSE ===========
 	< CONTINUE > ";" {
-		a = pointer_stack.peek();
+		b = loop_stack.pop();
+		a = loop_stack.peek(); // the starting point of test is one into the top of stack
+		loop_stack.push((int)b);
 		quad_list.add(new Quad("jmp",null,null,a));
 		System.out.println("Stack sta: "+semantic_stack+"7\n");
 	}
@@ -247,7 +255,7 @@ void expression():{}
 		Object a = semantic_stack.pop(); //the latter
 		Object b = semantic_stack.pop(); //the first (destination)
 		quad_list.add(new Quad("mov",a,null,b));
-		semantic_stack.push(a);
+		semantic_stack.push(b);
 	}
 	|
 	condition() 
@@ -259,22 +267,22 @@ void condition():{Object a, b, c;}
 		a = quad_list.size();
 		b = semantic_stack.pop();
 		quad_list.add(new Quad("jeqz",b,null,-1));
-		pointer_stack.push((int)a);
-		Object dest = semantic_stack.pop(); // the place to be assigned
+		cdtn_stack.push((int)a);
+		Object dest = new Object(); // the place to be assigned
 	}
 	expression() ":"	{
-		c = semantic_stack.peek();
+		c = semantic_stack.pop();
 		quad_list.add(new Quad("mov",c,null,dest));
 		a = quad_list.size(); 
 		quad_list.add(new Quad("jmp",null,null,-1));
-		b = pointer_stack.pop();
+		b = cdtn_stack.pop();
 		quad_list.get((int)b).result = quad_list.size();
-		pointer_stack.push((int)a);
+		cdtn_stack.push((int)a);
 	}
 	condition() 	{
 		c = semantic_stack.pop();
 		quad_list.add(new Quad("mov",c,null,dest));
-		a = pointer_stack.pop();
+		a = cdtn_stack.pop();
 		quad_list.get((int)a).result = quad_list.size();  
 		semantic_stack.push(dest);
 	}
@@ -354,9 +362,10 @@ void factor():{}
 {
 	primary()
 	|
-	unaryop() primary() {		Object a = new Object();
+	{ String op;}
+	op=unaryop() primary() {		Object a = new Object();
 		Object b = semantic_stack.pop();
-		quad_list.add(new Quad("neg",b,null,a));
+		quad_list.add(new Quad(op,b,null,a));
 		semantic_stack.push(a);
 		//System.out.println("Stack fac: "+semantic_stack);
 	}
@@ -403,9 +412,9 @@ String addop():{}
 
 String unaryop():{}
 {
-	"-"{return "-";}
+	"-"{return "neg";}
 	|
-	"!"{return "!";}
+	"!"{return "not";}
 }
 
 // E: E+T|T  becomes E: T(+T)*
