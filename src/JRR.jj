@@ -73,12 +73,176 @@ class Quad{	String op;
 	}
 }
 
+
+
+class SymbolTable
+{
+	class RegManager
+	{
+		List<List<Object>> regs;
+		public RegManager()
+		{
+			regs = new ArrayList<List<Object>>(16);
+		}
+	
+		boolean regavail (List<Object> l)
+		{
+			for (Object o: l)
+				if (alive(o)) return false;
+			return true;
+		}
+	
+		public int findreg ()
+		{
+			for (int i = 0; i < regs.size(); i++)
+			{
+				if (regavail(regs.get(i)))
+					return i;
+			}
+			// fail to find a empty reg
+			int i = 0;
+			for (Object o: regs.get(i))
+			{
+				//TODO generate store inst. for all those names in that reg
+				//TODO update st locations for those names
+				System.out.println("store"+o);
+			}			
+			return i;
+		}
+	}
+	
+	ArrayList<Object> name;
+	ArrayList<Integer> nextuse;
+	ArrayList<Integer> regloc;
+	ArrayList<Integer> memloc;
+	RegManager rm; 
+
+	public SymbolTable ()	{
+		name = new ArrayList<Object>();
+		nextuse = new ArrayList<Integer>();
+		regloc = new ArrayList<Integer>();
+		memloc = new ArrayList<Integer>();
+		rm = new RegManager();	}
+
+	public boolean add(Object o)
+	{
+		if (!name.contains(o))
+		{
+			name.add(o);
+			nextuse.add(-1);
+			regloc.add(null);
+			memloc.add(null);
+			return true;
+		}
+		else return false;
+	}
+	
+	public void add(Object o, int n)
+	{
+		if (!name.contains(o))
+		{
+			name.add(o);
+			nextuse.add(n);
+			regloc.add(null);
+			memloc.add(null);
+		}
+		else setnext(o,n);
+	}
+	
+	public boolean del(Object o)
+	{
+		if (name.contains(o))
+		{
+			int i = name.indexOf(o);
+			name.remove(i);
+			nextuse.remove(i);
+			regloc.remove(i);
+			memloc.remove(i);
+			return true;
+		}
+		else return false;
+	}
+
+	public void housekeeping()	{
+		for (int i = 0; i<name.size(); i++)
+		{
+			if (!(name.get(i) instanceof String))
+				del(name.get(i));
+			else
+				setnext(name.get(i), -1); // does not have next use info but still alive		}	}
+
+	public boolean alive(Object o)
+	{
+		return name.contains(o);	}
+
+	public int getnext(Object o)
+	{
+		if (name.contains(o))
+		{			
+			return nextuse.get(name.indexOf(o));
+		}
+		else return -1;
+	}	
+	public int getreg(Object o)
+	{
+		if (name.contains(o))
+		{			
+			return regloc.get(name.indexOf(o));
+		}
+		else return -1;
+	}	
+	public int getmem(Object o)
+	{
+		if (name.contains(o))
+		{			
+			return memloc.get(name.indexOf(o));
+		}
+		else return -1;
+	}	
+	public boolean setnext(Object o, int n)
+	{
+		if (name.contains(o))
+		{
+			nextuse.set(name.indexOf(o), n);
+			return true;
+		}
+		else return false;
+	}	
+	public boolean setreg(Object o, int n)
+	{
+		if (name.contains(o))
+		{
+			regloc.set(name.indexOf(o), n);
+			return true;
+		}
+		else return false;
+	}
+	public boolean setmem(Object o, int n)
+	{
+		if (name.contains(o))
+		{
+			memloc.set(name.indexOf(o), n);
+			return true;
+		}
+		else return false;
+	}
+
+	@Override public String toString()
+	{
+		String r = "Symbol Table\n";
+		for (int i = 0; i<name.size(); i++)
+			r=r+""+name.get(i)+"\t"+nextuse.get(i)+"\t"+regloc.get(i)+"\t"+memloc.get(i)+"\n";
+		return r;		
+	}
+}
+
 public class JRR
 {
-  public static HashMap<Object, Integer> symbol_table;
+  //public static HashMap<Object, Integer> symbol_table;
   public static ArrayList<Quad> quad_list;
   public static Stack<Object> semantic_stack;
   public static Stack<Integer> cdtn_stack, loop_stack;
+  public static SymbolTable st; 
   
   public static void main(String args []) throws ParseException
   {
@@ -92,22 +256,18 @@ public class JRR
         JRR.cdtn_stack = new Stack<Integer>();
         JRR.loop_stack = new Stack<Integer>();
         JRR.quad_list = new ArrayList<Quad>();
-        JRR.symbol_table = new HashMap<Object, Integer>();
+        //JRR.symbol_table = new HashMap<Object, Integer>();
+        JRR.st = new SymbolTable();
         JRR.program();
         System.out.println("Successful Parsing.");
         System.out.println("\n------------------Stack------------------");
 		System.out.println("Semantic Stack: "+semantic_stack);
 		System.out.println("Cdtn Stack: "+cdtn_stack);
 		System.out.println("Loop Stack: "+loop_stack);
-		//while (!semantic_stack.empty())
-		//	System.out.println("Stack Item :"+semantic_stack.pop().toString());
 		cleanJumps(quad_list);
 		findLeaders(quad_list);
 		genCode(quad_list);
-		//System.out.println("\n------------------Symbol Table------------------");
-		//for (Symbol symb: symbol_table)
-		//	System.out.println("Symbol :"+symb);
-		//System.out.println("\n------------------Quads------------------");
+		System.out.println("\n------------------Quads------------------");
 		for (int i=0; i<quad_list.size();i++)
 			System.out.println("Quad :"+i+"	"+quad_list.get(i));
         
@@ -161,6 +321,13 @@ public class JRR
 					// ASSIGNMENT 
 					case "mov":
 						;
+						if (st.getreg(q.arg1)==-1) //is not in a reg
+						{
+							int reg = st.rm.findreg();
+							System.out.println("MOVE.L	"+q.arg1+"	"+reg);						}
+						if ((!st.alive(q.arg1))&&st.getreg(q.arg1)!=-1)
+
+						// MORE TO DO 
 						break;
 						
 					// ARITHMETIC/LOGICAL
@@ -214,6 +381,7 @@ public class JRR
 					case "ret":
 						;
 						break;
+						
 					default:
 						System.out.println("Invalid op: "+q.op);
 						break;
@@ -228,10 +396,12 @@ public class JRR
 
 
 			// PERFORM LIVE VARIABLE ANALYSIS //
-			symbol_table.clear();
+			//symbol_table.clear();
+			st.housekeeping();	
 			for (int i = next-1; i >= crt; i--)			{
+				// Symbol Table - > Quads
+				/*
 				if (list.get(i).arg1 instanceof Symbol) {
-					Object v = ((Symbol)list.get(i).arg1).name;
 					if (symbol_table.containsKey(v))
 						list.get(i).arg1 = new Symbol(v, symbol_table.get(v));
 				}
@@ -244,14 +414,41 @@ public class JRR
 					Object v = ((Symbol)list.get(i).result).name;
 					if (symbol_table.containsKey(v))
 						list.get(i).result = new Symbol(v, symbol_table.get(v));
-				}		
+				}
+				*/
+				if (list.get(i).arg1 instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).arg1).name;
+					if (st.alive(v)) list.get(i).arg1 = new Symbol(v, st.getnext(v));					
+				}
+				if (list.get(i).arg2 instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).arg2).name;
+					if (st.alive(v)) list.get(i).arg2 = new Symbol(v, st.getnext(v));
+				}
+				if (list.get(i).result instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).result).name;
+					if (st.alive(v)) list.get(i).result = new Symbol(v, st.getnext(v));
+				}
 				
+	
+
+				// Set new values for Symble Table				
+				/*
 				if (list.get(i).arg1 instanceof Symbol) { //only objects go to symbol table. ints and null don't 
 					symbol_table.put(((Symbol)list.get(i).arg1).name,i);}
 				if (list.get(i).arg2 instanceof Symbol) {
 					symbol_table.put(((Symbol)list.get(i).arg2).name,i);}
 				if (list.get(i).result instanceof Symbol) {
-				  	symbol_table.put(((Symbol)list.get(i).result).name,-1);}							}
+				  	symbol_table.put(((Symbol)list.get(i).result).name,-1);}
+				 */
+				if (list.get(i).arg1 instanceof Symbol)  //only objects go to symbol table. ints and null don't 
+					st.add(((Symbol)list.get(i).arg1).name,i);
+				if (list.get(i).arg2 instanceof Symbol)
+					st.add(((Symbol)list.get(i).arg2).name,i);
+				if (list.get(i).result instanceof Symbol)
+					st.add(((Symbol)list.get(i).result).name,i);
+				
+
+							}
 			
 			// GENERATE CODE //
 			for (int i = crt; i < next; i++)			{
@@ -267,9 +464,11 @@ public class JRR
 
 
 			// END OF THIS BLOCK //
+			System.out.println(""+crt+"\t"+next);
+			System.out.println(st);
 			crt = next;
 			next++; // when crt is exit, next is oob
-			System.out.println("k	"+symbol_table);
+			
 		}
 
 		
