@@ -10,12 +10,50 @@ options
 
 PARSER_BEGIN(JRR)
 import java.util.*;
-class Quad{	Object op, arg1, arg2, result;
-	public Quad(Object o, Object a1, Object a2, Object re)	{
+
+class Symbol
+{
+	public Object name;
+	public int nextuse;
+	public Symbol(Object o)
+	{	
+		name = o;
+		nextuse = -1;
+	}
+	public Symbol(Object o, int n)
+	{	
+		name = o;
+		nextuse = n;
+	}
+
+	@Override public boolean equals(Object o)
+	{
+		return (((Symbol)o).name.equals(name));
+	}
+	@Override public String toString()
+	{
+		return "(["+name+"]["+nextuse+"])";		
+	}
+}
+
+class Quad{	String op;
+	Object arg1, arg2, result;
+	boolean leader;
+	public Quad(String o, Object a1, Object a2, Object re)	{
 	  op = o;
-	  arg1 = a1;
-	  arg2 = a2;
-	  result = re;
+
+	  //System.out.println(a1 + "" + (arg1 instanceof Integer));
+	  
+	  if ((a1 instanceof Integer)||a1==null)	arg1 = a1;
+	  else arg1 = new Symbol(a1);
+	  
+	  if ((a2 instanceof Integer)||a2==null)	arg2 = a2;
+	  else arg2 = new Symbol(a2);
+	  
+	  if ((re instanceof Integer)||re==null)	result = re;
+	  else result = new Symbol(re);
+	  
+	  leader = false;
 	  //System.out.println(this);
 	}
 	
@@ -28,19 +66,19 @@ class Quad{	Object op, arg1, arg2, result;
 		else s = s+"NULL"+"<	>";
 		if (arg2 != null) s = s+arg2.toString()+"<	>";
 		else s = s+"NULL"+"<	>";
-		if (result != null) s = s+result.toString();
-		else s = s+"NULL";
+		if (result != null) s = s+result.toString()+"<	>";
+		else s = s+"NULL"+"<	>";
+		s = s+leader+"<";
 		return s;
 	}
 }
 
 public class JRR
 {
-  public static ArrayList<String> symbol_table;
+  public static HashMap<Object, Integer> symbol_table;
   public static ArrayList<Quad> quad_list;
   public static Stack<Object> semantic_stack;
-  public static Stack<Integer> cdtn_stack;
-  public static Stack<Integer> loop_stack;
+  public static Stack<Integer> cdtn_stack, loop_stack;
   
   public static void main(String args []) throws ParseException
   {
@@ -54,22 +92,25 @@ public class JRR
         JRR.cdtn_stack = new Stack<Integer>();
         JRR.loop_stack = new Stack<Integer>();
         JRR.quad_list = new ArrayList<Quad>();
-        JRR.symbol_table = new ArrayList<String>();
+        JRR.symbol_table = new HashMap<Object, Integer>();
         JRR.program();
         System.out.println("Successful Parsing.");
-        System.out.println("\n------------------Symbol Table------------------");
-		for (String symb: symbol_table)
-			System.out.println("Symbol :"+symb);
-		System.out.println("\n------------------Stack------------------");
+        System.out.println("\n------------------Stack------------------");
 		System.out.println("Semantic Stack: "+semantic_stack);
 		System.out.println("Cdtn Stack: "+cdtn_stack);
 		System.out.println("Loop Stack: "+loop_stack);
 		//while (!semantic_stack.empty())
 		//	System.out.println("Stack Item :"+semantic_stack.pop().toString());
-		System.out.println("\n------------------Quads------------------");
+		cleanJumps(quad_list);
+		findLeaders(quad_list);
+		genCode(quad_list);
+		//System.out.println("\n------------------Symbol Table------------------");
+		//for (Symbol symb: symbol_table)
+		//	System.out.println("Symbol :"+symb);
+		//System.out.println("\n------------------Quads------------------");
 		for (int i=0; i<quad_list.size();i++)
 			System.out.println("Quad :"+i+"	"+quad_list.get(i));
-           
+        
       }
       catch(ParseException e){
         System.err.println("Fail Parsing");
@@ -92,6 +133,148 @@ public class JRR
       
     }
   }
+	public static void cleanJumps(ArrayList<Quad> list)
+	{    
+		for (int i = 0; i<list.size(); i++)    {
+			if (list.get(i).op.startsWith("j")) 		{
+				int crt = (int)list.get(i).result;
+				while (list.get(crt).op.equals("jmp"))
+					crt = (int)list.get(crt).result;
+				list.get(i).result = crt;
+			}
+		}
+	}
+
+	public static void findLeaders(ArrayList<Quad> list)	{
+		list.get(0).leader=true;		for (int i = 1; i<list.size()-1; i++)		{
+			if (list.get(i).op.startsWith("j"))
+			{				list.get((int)(list.get(i).result)).leader = true;
+				if (!list.get(i).op.equals("jump"))
+					list.get(i+1).leader = true;
+			}		}
+		// Last Quad: "exit" is not iterated over. always false unless set to be true
+	}	
+
+	public static void quad2code(Quad q)	{
+		switch (q.op)
+				{
+					// ASSIGNMENT 
+					case "mov":
+						;
+						break;
+						
+					// ARITHMETIC/LOGICAL
+					case "+":
+						;
+						break;
+					case "-":
+						;
+						break;
+					case "*":
+						;
+						break;
+					case "/":
+						;
+						break;
+					case "%":
+						;
+						break;
+					case "and":
+						;
+						break;
+					case "or":
+						;
+						break;
+					case "not":
+						;
+						break;
+					case "neg":
+						;
+						break;
+						
+					// RELATIONAL
+					case "LT":
+						;
+						break;
+					case "GT":
+						;
+						break;
+					case "tst":
+						;
+						break;
+						
+					// JUMPS 
+					case "jmp":
+						;
+						break;
+					case "jeqz":
+						;
+						break;
+						
+					case "ret":
+						;
+						break;
+					default:
+						System.out.println("Invalid op: "+q.op);
+						break;
+				}
+	}
+
+	public static void genCode(ArrayList<Quad> list)	{
+		int crt = 0;		
+		int next = crt+1;
+		while (next<list.size())		{			while ((!list.get(next).leader)&&next<list.size()) next++;
+			// crt, next are leaders of current and next basic blocks
+
+
+			// PERFORM LIVE VARIABLE ANALYSIS //
+			symbol_table.clear();
+			for (int i = next-1; i >= crt; i--)			{
+				if (list.get(i).arg1 instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).arg1).name;
+					if (symbol_table.containsKey(v))
+						list.get(i).arg1 = new Symbol(v, symbol_table.get(v));
+				}
+				if (list.get(i).arg2 instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).arg2).name;
+					if (symbol_table.containsKey(v))
+						list.get(i).arg2 = new Symbol(v, symbol_table.get(v));
+				}
+				if (list.get(i).result instanceof Symbol) {
+					Object v = ((Symbol)list.get(i).result).name;
+					if (symbol_table.containsKey(v))
+						list.get(i).result = new Symbol(v, symbol_table.get(v));
+				}		
+				
+				if (list.get(i).arg1 instanceof Symbol) { //only objects go to symbol table. ints and null don't 
+					symbol_table.put(((Symbol)list.get(i).arg1).name,i);}
+				if (list.get(i).arg2 instanceof Symbol) {
+					symbol_table.put(((Symbol)list.get(i).arg2).name,i);}
+				if (list.get(i).result instanceof Symbol) {
+				  	symbol_table.put(((Symbol)list.get(i).result).name,-1);}							}
+			
+			// GENERATE CODE //
+			for (int i = crt; i < next; i++)			{
+				quad2code(list.get(i));
+			}
+
+			// GENERATE STORAGE INSTUCTIONS //
+
+
+
+
+
+
+
+			// END OF THIS BLOCK //
+			crt = next;
+			next++; // when crt is exit, next is oob
+			System.out.println("k	"+symbol_table);
+		}
+
+		
+		
+		for (int i = 0; i < list.size(); i++)		{		}	}
 }
 
 PARSER_END(JRR)
@@ -102,16 +285,11 @@ SKIP :
 | "\r"
 | "\t"
 | "\n"
-| <"/*" (~["*"])* "*" ("*" | ~["*","/"] (~["*"])* "*")* "/">
+| <"/*" (~["*"])* "*" ("*" | ~["*","/"] (~["*"])* "*")* "/"> //comments 
 }
 
 TOKEN : /* OPERATORS */
 {
-//  < ADDOP : ["+","-"] >
-//| < UNARYOP : ["-","!"] >
-//| < MULOP : ["*","/","%"] >
-//| < RELOP : < LESSERTHAN >|< GRATERTHAN > >
-//|
 < LBRACE : "{" >
 | < RBRACE : "}" >
 | < LPAREN : "(" >
@@ -119,8 +297,6 @@ TOKEN : /* OPERATORS */
 | < LESSERTHAN : "<" >
 | < GRATERTHAN : ">" >
 }
-
-
 
 TOKEN : // Reserved Words
 {
@@ -143,7 +319,6 @@ TOKEN : // ID and Digits
 
 void program():{}
 {
-	{ System.out.println("program1");}
 	< LBRACE > (statement())* < RBRACE > <EOF>	{
 		quad_list.add(new Quad("exit",null,null,null));	}
 	
@@ -151,16 +326,13 @@ void program():{}
 
 void compound():{}
 {
-	{ System.out.println("compound1");}
 	< LBRACE > (statement())* < RBRACE > 
 }
 
-void statement():{Object a, b, c;}
+void statement():{Object a; int t1, t2; }
 {
 	//========== COMPOUND ===========
-	compound() {
-		System.out.println("Stack sta: "+semantic_stack+"1\n");
-	}
+	compound() {}
 	|
 	
 	//========== WHILE CLAUSE ===========
@@ -171,46 +343,42 @@ void statement():{Object a, b, c;}
 		loop_stack.push(quad_list.size());
 		quad_list.add(new Quad("jeqz",a,null,-1));	}
 	statement() {
-		a = loop_stack.pop(); // where loop body(conditional jump) starts
-		b = loop_stack.pop(); // where loop testing block starts 
-		quad_list.add(new Quad("jmp",null,null,b));
-		quad_list.get((int)a).result = quad_list.size();
-		System.out.println("Stack sta: "+semantic_stack+"2\n");
+		t1 = loop_stack.pop(); // where loop body(conditional jump) starts
+		t2 = loop_stack.pop(); // where loop testing block starts 
+		quad_list.add(new Quad("jmp",null,null,t2));
+		quad_list.get(t1).result = quad_list.size();
 	}
 	|
 
 	//========== IF CLAUSE ===========
 	< IF > test()	{
-		a = quad_list.size();
-		b = semantic_stack.pop();
-		quad_list.add(new Quad("jeqz",b,null,-1));
-		cdtn_stack.push((int)a); 	} statement() (LOOKAHEAD(2) < ELSE >   {
-		a = quad_list.size(); //quad_list.size() MEANS NextQuad
+		t1 = quad_list.size(); //quad_list.size() MEANS NextQuad
+		a = semantic_stack.pop();
+		quad_list.add(new Quad("jeqz",a,null,-1));
+		cdtn_stack.push(t1); 	} statement() (LOOKAHEAD(2) < ELSE >   {
+		t1 = quad_list.size(); 
 		quad_list.add(new Quad("jmp",null,null,-1));
-		b = cdtn_stack.pop();
-		quad_list.get((int)b).result = quad_list.size();
-		cdtn_stack.push((int)a);     	} statement())? {
-		a = cdtn_stack.pop();
-		quad_list.get((int)a).result = quad_list.size();
-		System.out.println("Stack sta: "+semantic_stack+"3\n");
+		t2 = cdtn_stack.pop();
+		quad_list.get(t2).result = quad_list.size();
+		cdtn_stack.push(t1);     	} statement())? {
+		t1 = cdtn_stack.pop();
+		quad_list.get(t1).result = quad_list.size();
 	}
 	|
 
 	//========== EXPRESSION ===========
 	expression() ";" {
 		semantic_stack.pop();
-		System.out.println("Stack sta: "+semantic_stack+"4\n");
 	}
 	|
 
 	//========== BREAK CLAUSE ===========
 	< BREAK >";" { //TODO implement BREAK
-		a = loop_stack.pop();
-		b = quad_list.size();
-		quad_list.add(new Quad("jmp",null,null,a));
-		quad_list.get((int)a).result = b;
-		loop_stack.push((int)b);
-		System.out.println("Stack sta: "+semantic_stack+"5\n");
+		t1 = loop_stack.pop();
+		t2 = quad_list.size();
+		quad_list.add(new Quad("jmp",null,null,t1));
+		quad_list.get(t1).result = t2;
+		loop_stack.push(t2);
 	}
 	|
 
@@ -218,29 +386,24 @@ void statement():{Object a, b, c;}
 	< RETURN > expression()";" {
 		a = semantic_stack.pop();
 		quad_list.add(new Quad("ret",null,null,a));
-		System.out.println("Stack sta: "+semantic_stack+"6\n");
 	}
 	|
 	
 	//========== CONTINUE CLAUSE ===========
 	< CONTINUE > ";" {
-		b = loop_stack.pop();
-		a = loop_stack.peek(); // the starting point of test is one into the top of stack
-		loop_stack.push((int)b);
-		quad_list.add(new Quad("jmp",null,null,a));
-		System.out.println("Stack sta: "+semantic_stack+"7\n");
+		t2 = loop_stack.pop();
+		t1 = loop_stack.peek(); // the starting point of test is one into the top of stack
+		loop_stack.push(t2);
+		quad_list.add(new Quad("jmp",null,null,t1));
 	}
 	|
 
 	//========== SEMICOLON ===========
 	";" {
-		System.out.println("Stack sta: "+semantic_stack+"8\n");
 	}
 }
-
 void test():{}
 {
-	{ System.out.println("test");}
 	< LPAREN > expression() < RPAREN > 
 }
 
@@ -249,7 +412,7 @@ void expression():{}
 	LOOKAHEAD(2)  
 	{ Token id; }
 	id=< ID >	{
-	  semantic_stack.push(id.image);
+		semantic_stack.push(id.image);
 	}
 	"=" expression() {
 		Object a = semantic_stack.pop(); //the latter
@@ -261,29 +424,29 @@ void expression():{}
 	condition() 
 }
 
-void condition():{Object a, b, c;}
+void condition():{Object a, b, c; int t1, t2;}
 {
 	disjunction() ("?"	{
-		a = quad_list.size();
-		b = semantic_stack.pop();
-		quad_list.add(new Quad("jeqz",b,null,-1));
-		cdtn_stack.push((int)a);
+		t1 = quad_list.size();
+		a = semantic_stack.pop();
+		quad_list.add(new Quad("jeqz",a,null,-1));
+		cdtn_stack.push(t1);
 		Object dest = new Object(); // the place to be assigned
 	}
 	expression() ":"	{
-		c = semantic_stack.pop();
-		quad_list.add(new Quad("mov",c,null,dest));
-		a = quad_list.size(); 
+		b = semantic_stack.pop();
+		quad_list.add(new Quad("mov",b,null,dest));
+		t1 = quad_list.size(); 
 		quad_list.add(new Quad("jmp",null,null,-1));
-		b = cdtn_stack.pop();
-		quad_list.get((int)b).result = quad_list.size();
-		cdtn_stack.push((int)a);
+		t2 = cdtn_stack.pop();
+		quad_list.get(t2).result = quad_list.size();
+		cdtn_stack.push(t1);
 	}
 	condition() 	{
 		c = semantic_stack.pop();
 		quad_list.add(new Quad("mov",c,null,dest));
-		a = cdtn_stack.pop();
-		quad_list.get((int)a).result = quad_list.size();  
+		t1 = cdtn_stack.pop();
+		quad_list.get(t1).result = quad_list.size();  
 		semantic_stack.push(dest);
 	}
 	)?
@@ -367,7 +530,6 @@ void factor():{}
 		Object b = semantic_stack.pop();
 		quad_list.add(new Quad(op,b,null,a));
 		semantic_stack.push(a);
-		//System.out.println("Stack fac: "+semantic_stack);
 	}
 }
 
@@ -375,9 +537,10 @@ void primary():{}
 {  
 	{ Token id; }
 	id = < ID >  {
-	if (!symbol_table.contains(id.image))
-		symbol_table.add(id.image);
-    semantic_stack.push(id.image);
+//		Symbol s = new Symbol(id.image);
+//		if (!symbol_table.contains(s))
+//			symbol_table.add(s);
+	    semantic_stack.push(id.image);
     }
     |
     {Token i;}
