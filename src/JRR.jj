@@ -18,7 +18,12 @@ class Symbol
 	public Symbol(Object o)
 	{	
 		name = o;
-		nextuse = -1;
+		//nextuse = -1;
+		if (!(o instanceof String)) // temp
+			nextuse=-1;			
+		else
+			nextuse=0;	
+			
 	}
 	public Symbol(Object o, int n)
 	{	
@@ -28,7 +33,9 @@ class Symbol
 
 	@Override public boolean equals(Object o)
 	{
-		return (((Symbol)o).name.equals(name));
+		if (o instanceof Symbol)
+			return (((Symbol)o).name.equals(name));
+		else return false;
 	}
 	@Override public String toString()
 	{
@@ -73,19 +80,18 @@ class Quad{	String op;
 	}
 }
 
-
-
 class SymbolTable
 {
 	class RegManager
 	{
-		List<List<Object>> regs;
-		public RegManager()
+		ArrayList<ArrayList<Object>> regs;
+		public RegManager(int cap)
 		{
-			regs = new ArrayList<List<Object>>(16);
+			regs = new ArrayList<ArrayList<Object>>();
+			for (int i = 0; i < cap; i++) regs.add(new ArrayList<Object>());
 		}
 	
-		boolean regavail (List<Object> l)
+		boolean regavail (ArrayList<Object> l)
 		{
 			for (Object o: l)
 				if (alive(o)) return false;
@@ -100,38 +106,57 @@ class SymbolTable
 					return i;
 			}
 			// fail to find a empty reg
-			int i = 0;
-			for (Object o: regs.get(i))
+			int r = 0;
+			for (int i = 0; i < regs.get(r).size(); i++)
 			{
-				//TODO generate store inst. for all those names in that reg
-				//TODO update st locations for those names
-				System.out.println("store"+o);
-			}			
-			return i;
+				m.store(regs.get(r).get(i));				
+			}
+			regs.set(r, new ArrayList<Object>());		
+			return r;
 		}
+	}
+
+	class Memory
+	{		ArrayList<Boolean> m;
+		int base, step;
+		public Memory(int cap)		{
+			m = new ArrayList<Boolean>(cap);
+			for (int i = 0; i < 256; i++) m.add(false);
+			base = 0; //eax: 32bits, 4bytes
+			step = 1;		}
+		void store(Object o)		{
+			int i = m.indexOf(false);
+			m.set(i,true);
+			setmem(o,i);
+			System.out.println("MOVL\t%R"+getreg(o)+",\t0x"+Integer.toHexString(i)+"\n");		}
 	}
 	
 	ArrayList<Object> name;
 	ArrayList<Integer> nextuse;
 	ArrayList<Integer> regloc;
 	ArrayList<Integer> memloc;
-	RegManager rm; 
+	RegManager rm;
+	Memory m;
 
 	public SymbolTable ()	{
 		name = new ArrayList<Object>();
 		nextuse = new ArrayList<Integer>();
 		regloc = new ArrayList<Integer>();
 		memloc = new ArrayList<Integer>();
-		rm = new RegManager();	}
+		rm = new RegManager(8);
+		m = new Memory(256);	}
 
 	public boolean add(Object o)
 	{
 		if (!name.contains(o))
 		{
 			name.add(o);
-			nextuse.add(-1);
-			regloc.add(null);
-			memloc.add(null);
+			if (!(o instanceof String)) // temp
+				nextuse.add(-1);			
+			else
+				nextuse.add(0);	
+			regloc.add(-1);
+			memloc.add(-1);
 			return true;
 		}
 		else return false;
@@ -143,8 +168,8 @@ class SymbolTable
 		{
 			name.add(o);
 			nextuse.add(n);
-			regloc.add(null);
-			memloc.add(null);
+			regloc.add(-1);
+			memloc.add(-1);
 		}
 		else setnext(o,n);
 	}
@@ -169,11 +194,11 @@ class SymbolTable
 			if (!(name.get(i) instanceof String))
 				del(name.get(i));
 			else
-				setnext(name.get(i), -1); // does not have next use info but still alive		}	}
+				setnext(name.get(i), 0); // does not have next use info but still alive		}	}
 
 	public boolean alive(Object o)
 	{
-		return name.contains(o);	}
+		return getnext(o) >= 0;	}
 
 	public int getnext(Object o)
 	{
@@ -242,7 +267,8 @@ public class JRR
   public static ArrayList<Quad> quad_list;
   public static Stack<Object> semantic_stack;
   public static Stack<Integer> cdtn_stack, loop_stack;
-  public static SymbolTable st; 
+  public static SymbolTable st;
+  public static String ins; 
   
   public static void main(String args []) throws ParseException
   {
@@ -259,17 +285,19 @@ public class JRR
         //JRR.symbol_table = new HashMap<Object, Integer>();
         JRR.st = new SymbolTable();
         JRR.program();
+        JRR.ins = "";
         System.out.println("Successful Parsing.");
         System.out.println("\n------------------Stack------------------");
 		System.out.println("Semantic Stack: "+semantic_stack);
 		System.out.println("Cdtn Stack: "+cdtn_stack);
 		System.out.println("Loop Stack: "+loop_stack);
 		cleanJumps(quad_list);
-		findLeaders(quad_list);
-		genCode(quad_list);
+		findLeaders(quad_list);		
 		System.out.println("\n------------------Quads------------------");
 		for (int i=0; i<quad_list.size();i++)
 			System.out.println("Quad :"+i+"	"+quad_list.get(i));
+
+		genCode(quad_list);
         
       }
       catch(ParseException e){
@@ -316,70 +344,851 @@ public class JRR
 	}	
 
 	public static void quad2code(Quad q)	{
+		int reg;
+		Object n=null;
+		String opr = "";
 		switch (q.op)
-				{
-					// ASSIGNMENT 
+				{		
+					// ASSIGNMENT
 					case "mov":
-						;
-						if (st.getreg(q.arg1)==-1) //is not in a reg
-						{
-							int reg = st.rm.findreg();
-							System.out.println("MOVE.L	"+q.arg1+"	"+reg);						}
-						if ((!st.alive(q.arg1))&&st.getreg(q.arg1)!=-1)
+						
+						// source is an integer
+						if (q.arg1 instanceof Integer)  						{
+							reg = st.rm.findreg();
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");						}
+						else 						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, but not in reg. must be in storage
+							if (st.getreg(n)==-1)							{
+								reg = st.rm.findreg();
+								st.setreg(n, reg);
+								System.out.println("MOVL\t$0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");							}
+							// source is already in a reg			
+							else reg = st.getreg(n);
 
-						// MORE TO DO 
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}													}
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 						
 					// ARITHMETIC/LOGICAL
 					case "+":
-						;
+						reg = st.rm.findreg();
+						opr = "ADDL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}						}
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t"+"%R"+reg+",\t%R"+reg+"\n");						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+								}							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}						}
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
+						
 					case "-":
-						;
+						reg = st.rm.findreg();
+						opr = "SUBL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t"+"%R"+reg+",\t%R"+reg+"\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "*":
-						;
+						opr = "IMUL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%EAX\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%EAX\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%EAX\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t%EAX\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+						reg = st.rm.findreg();
+						System.out.println("MOVL\t"+"%EAX"+",\t%R"+reg+"\n");
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "/":
-						;
+						opr = "IDIV";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%EAX\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%EAX\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%EAX\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println("CDQ\n");
+						
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t%EAX\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+						reg = st.rm.findreg();
+						System.out.println("MOVL\t"+"%EAX"+",\t%R"+reg+"\n");
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "%":
-						;
-						break;
+						opr = "IDIV";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%EAX\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%EAX\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%EAX\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println("CDQ\n");
+						
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t%EAX\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(st.getreg(n)).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+						reg = st.rm.findreg();
+						System.out.println("MOVL\t"+"%EDX"+",\t%R"+reg+"\n");
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
+						break;						
 					case "and":
-						;
+						reg = st.rm.findreg();
+						opr = "ANDL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t"+"%R"+reg+",\t%R"+reg+"\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "or":
-						;
+						reg = st.rm.findreg();
+						opr = "ORL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg1.equals(q.arg2))
+						{
+							System.out.println(opr+"\t"+"%R"+reg+",\t%R"+reg+"\n");
+						}
+						else
+						{
+							if (q.arg2 instanceof Integer)
+								System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+							else
+							{
+								// arg2 is a Symbol 
+								n = ((Symbol)(q.arg2)).name;
+								// arg2 is not in a reg
+								if (st.getreg(n) == -1) 
+								{
+									System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+								}
+								// source is a Symbol, in a reg	
+								else
+								{
+									System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+								}
+							}
+
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "not":
-						;
+						reg = st.rm.findreg();
+						opr = "NOTL";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println(opr+"\t%R"+reg+"\n");
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 					case "neg":
-						;
+						reg = st.rm.findreg();
+						opr = "NEG";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println(opr+"\t%R"+reg+"\n");
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 						
 					// RELATIONAL
-					case "LT":
-						;
-						break;
 					case "GT":
-						;
-						break;
-					case "tst":
-						;
+						reg = st.rm.findreg();
+						opr = "CMP";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg2 instanceof Integer)
+							System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+						else
+						{
+							// arg2 is a Symbol 
+							n = ((Symbol)(q.arg2)).name;
+							// arg2 is not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						// CMP A, B
+						// JG jumps if b is greater
+						
+						System.out.println("JG\t"+".+"+7+"\n"); // Jump to P1 					// 7F XX
+						System.out.println("MOVL\t$0x"+0+",\t%R"+reg+"\n");						// MV 00 RR
+						System.out.println("JMP\t"+".+"+5+"\n"); //Jump to P2					// JP XX
+						// P1
+						System.out.println("MOVL\t$0x"+1+",\t%R"+reg+"\n");						// MV 00 RR
+						// P2
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
 						break;
 						
+					case "LT":
+						reg = st.rm.findreg();
+						opr = "CMP";
+						
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						if (q.arg2 instanceof Integer)
+							System.out.println(opr+"\t$0x"+Integer.toHexString((int)q.arg2)+",\t%R"+reg+"\n");
+						else
+						{
+							// arg2 is a Symbol 
+							n = ((Symbol)(q.arg2)).name;
+							// arg2 is not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println(opr+"\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println(opr+"\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg2 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						// CMP A, B
+						// JG jumps if b is greater
+						
+						System.out.println("JL\t"+".+"+7+"\n"); // Jump to P1 					// 7F XX
+						System.out.println("MOVL\t$0x"+0+",\t%R"+reg+"\n");						// MV 00 RR
+						System.out.println("JMP\t"+".+"+5+"\n"); //Jump to P2					// JP XX
+						// P1
+						System.out.println("MOVL\t$0x"+1+",\t%R"+reg+"\n");						// MV 00 RR
+						// P2
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
+						break;
+						
+					case "tst":
+						reg = st.rm.findreg();
+
+						// Simply move changes the flags
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println("JZ\t"+".+"+7+"\n"); // Jump to P1 					// 7F XX
+						System.out.println("MOVL\t$0x"+0+",\t%R"+reg+"\n");						// MV 00 RR
+						System.out.println("JMP\t"+".+"+5+"\n"); //Jump to P2					// JP XX
+						// P1
+						System.out.println("MOVL\t$0x"+1+",\t%R"+reg+"\n");						// MV 00 RR
+						// P2
+
+						n = ((Symbol)(q.result)).name;
+
+						st.setreg(n,reg); // update ST.Locations for A to indicate it is in REG and nowhere else
+						st.rm.regs.get(reg).add(n); // update Reg Table to indicate A is in it
+						st.setmem(n,-1);
+						break;
+												
 					// JUMPS 
 					case "jmp":
-						;
+						for (Object o: st.name)
+						{
+							if (st.getmem(o) >-1) st.m.store(o);
+						}
+						System.out.println("JMP\t"+0+"\n");
+						int i = (int)q.result;
 						break;
 					case "jeqz":
-						;
+						reg = st.rm.findreg();
+						//opr = "CMP";
+
+
+						for (Object o: st.name)						{
+							if (st.getmem(o) >-1) st.m.store(o);						}						
+
+						// Simply move changes the flags
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%R"+reg+"\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%R"+reg+"\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%R"+reg+"\n");
+							}
+
+							
+							if ( (!st.alive(n))	&&	(st.getreg(n) >-1) ) // if arg1 is dead, 
+							{
+								st.rm.regs.get(reg).remove(n);
+								st.setreg(n,-1);
+								st.setmem(n,-1);							
+							}
+						}
+
+						System.out.println("JZ\t"+".+"+7+"\n"); // Jump to P1 					// 7F XX
+						int j = (int)q.result;
 						break;
 						
 					case "ret":
-						;
+						if (q.arg1 instanceof Integer)
+							System.out.println("MOVL\t$0x"+Integer.toHexString((int)q.arg1)+",\t%EAX\n");
+						else
+						{
+							n = ((Symbol)(q.arg1)).name;
+							// source is a Symbol, not in a reg
+							if (st.getreg(n) == -1) 
+							{
+								System.out.println("MOVL\t0x"+Integer.toHexString(st.getmem(n))+",\t%EAX\n");
+							}
+							// source is a Symbol, in a reg	
+							else
+							{
+								System.out.println("MOVL\t"+"%R"+st.getreg(n)+",\t%EAX\n");
+							}
+
+							
+							for (Object o: st.name)
+							{
+								if (st.getmem(o) >-1) st.m.store(o);
+							}
+						}
 						break;
 						
 					default:
@@ -397,7 +1206,6 @@ public class JRR
 
 			// PERFORM LIVE VARIABLE ANALYSIS //
 			//symbol_table.clear();
-			st.housekeeping();	
 			for (int i = next-1; i >= crt; i--)			{
 				// Symbol Table - > Quads
 				/*
@@ -456,6 +1264,7 @@ public class JRR
 			}
 
 			// GENERATE STORAGE INSTUCTIONS //
+			
 
 
 
@@ -465,7 +1274,9 @@ public class JRR
 
 			// END OF THIS BLOCK //
 			System.out.println(""+crt+"\t"+next);
-			System.out.println(st);
+			st.housekeeping();	
+			
+			//System.out.println(st);
 			crt = next;
 			next++; // when crt is exit, next is oob
 			
@@ -584,7 +1395,7 @@ void statement():{Object a; int t1, t2; }
 	//========== RETURN CLAUSE ===========
 	< RETURN > expression()";" {
 		a = semantic_stack.pop();
-		quad_list.add(new Quad("ret",null,null,a));
+		quad_list.add(new Quad("ret",a,null,null));
 	}
 	|
 	
