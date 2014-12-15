@@ -1,6 +1,10 @@
 /**
- * JavaCC template file created by SF JavaCC plugin 1.5.17+ wizard for JavaCC 1.5.0+
- */
+ * JRR Compiler
+ * JRR.jj
+ * Yizhou Hu
+ * TCU COSC 40603 - Dr. Rinewalt
+ * Fall 2014 
+ **/
 options
 {
   JDK_VERSION = "1.5";
@@ -56,7 +60,6 @@ class Symbol
 
 	@Override public boolean equals(Object o)
 	{
-		//System.out.println(o.getClass().getName());
 		if (o instanceof Symbol)
 			return (name.equals(((Symbol)o).name));
 		else return false;
@@ -71,6 +74,7 @@ class Symbol
 		else return null; // This is error. Code should never reach here - "FROM" unassigned named variable 
 	}
 }
+
 class RegManager
 {
 	ArrayList<ArrayList<Integer>> regs;
@@ -89,7 +93,6 @@ class RegManager
 
 	boolean regavail (ArrayList<Integer> reg)
 	{
-		//System.out.println("in regavail, "+reg);
 		for (Integer i: reg)
 			if (st.get(i).alive()) return false;			
 		return true;
@@ -172,89 +175,85 @@ class Quad{	String op;
 	}
 }
 
-
 public class JRR
-{
-  
+{  
 	public static ArrayList<Symbol> symbol_table;
 	public static ArrayList<Quad> quad_list;
 	public static ArrayList<String> inst_list;
 	public static Stack<Integer> semantic_stack;
 	public static Stack<Integer> cdtn_stack, loop_stack;
-	//public static String ins;
+	
 	public static RegManager rm;
 	public static Memory memory;
+
+	public static boolean success; 
   
-  public static void main(String args []) throws ParseException
-  {
-    JRR parser = new JRR(System.in);
-    while (true)
-    {
-      System.out.println("Reading from standard input...");
-      try
-      {
-        JRR.symbol_table = new ArrayList<Symbol>();
-        
-        JRR.semantic_stack = new Stack<Integer>();
-        
-        JRR.cdtn_stack = new Stack<Integer>();
-        JRR.loop_stack = new Stack<Integer>();
-        
-        JRR.quad_list = new ArrayList<Quad>();
-        JRR.inst_list = new ArrayList<String>();
-        
-        JRR.memory = new Memory(256);
-        JRR.rm = new RegManager(8, memory, symbol_table, inst_list);
-        JRR.program();
-        //JRR.ins = "";
-        System.out.println("Successful Parsing.");
-        System.out.println("\n------------------Stack------------------");
-		System.out.println("Semantic Stack: "+semantic_stack);
-		System.out.println("Cdtn Stack: "+cdtn_stack);
-		System.out.println("Loop Stack: "+loop_stack);
-		cleanJumps(quad_list);
-		findLeaders(quad_list);
-		
-		System.out.println("\n------------------Symbol Table------------------");
-		for (int i=0; i<symbol_table.size();i++)
-			System.out.println("Symbol :"+i+"	"+symbol_table.get(i).name);
+	public static void main(String args []) throws ParseException
+	{
+	    JRR parser = new JRR(System.in);
+	    System.err.println("Usage: java JRR < in.txt > out.txt");
+	    System.err.println("Reading from standard input...");
+	    try	{
+			JRR.symbol_table = new ArrayList<Symbol>();
+	        
+	        JRR.semantic_stack = new Stack<Integer>();
+	        
+	        JRR.cdtn_stack = new Stack<Integer>();
+	        JRR.loop_stack = new Stack<Integer>();
+	        
+	        JRR.quad_list = new ArrayList<Quad>();
+	        JRR.inst_list = new ArrayList<String>();
+	        
+	        JRR.memory = new Memory(256);
+	        JRR.rm = new RegManager(8, memory, symbol_table, inst_list);
+
+			JRR.success = true;	        
+	        JRR.program();
+	        
+	        System.err.println("Parsing Finished. Success? "+success);
+	        if (!success) System.err.println("The compilation failed. \nThese printouts are for refrence only and may not be complete/correct.");
+	        System.err.println("\n------------------Stack------------------");
+			System.err.println("Semantic Stack: "+semantic_stack);
+			System.err.println("Cdtn Stack: "+cdtn_stack);
+			System.err.println("Loop Stack: "+loop_stack);
+			cleanJumps(quad_list);
+			findLeaders(quad_list);
 			
-		genCode(quad_list);
-
-		System.out.println("\n------------------Quads------------------");
-		for (int i=0; i<quad_list.size();i++)
-			System.out.println("Quad :"+i+"	"+quad_list.get(i));
-
-		addJumpDest(inst_list, quad_list);
-
-		System.out.println("\n------------------Instructions------------------");
-		for (int i=0; i<inst_list.size();i++)
-			System.out.print("Addr: 0x"+Integer.toHexString(i*2)+"	"+inst_list.get(i));
-
-		
-        
-      }
-      catch(ParseException e){
-        System.err.println("Fail Parsing");
-        System.err.println(e);
-        e.printStackTrace();
-        break;
-      }
-      catch (Exception e)
-      {
-        System.out.println("Exception. ");
-        e.printStackTrace();
-        JRR.ReInit(System.in);
-      }
-      catch (Error e)
-      {
-        System.out.println("Error.");
-        System.out.println(e.getMessage());
-        break;
-      }
+			System.err.println("\n------------------Symbol Table------------------");
+			for (int i=0; i<symbol_table.size();i++)
+				System.err.println("Symbol :"+i+"	"+symbol_table.get(i).name);
+				
+			genCode(quad_list);
+	
+			System.err.println("\n------------------Quads------------------");
+			for (int i=0; i<quad_list.size();i++)
+				System.err.println("Quad :"+i+"	"+quad_list.get(i));
+	
+			addJumpDest(inst_list, quad_list);
+	
+			System.err.println("\n------------------Instructions------------------");
+			for (int i=0; i<inst_list.size();i++)			{				if (success) System.out.print(inst_list.get(i));
+				System.err.print("Addr: 0x"+Integer.toHexString(i*2)+"	"+inst_list.get(i));			}	        
+		}
+		catch(ParseException e){
+			System.err.println("Fail Parsing");
+	        System.err.println(e);
+	        e.printStackTrace();
+	        JRR.ReInit(System.in);
+		}
+		catch (Exception e)
+		{
+			System.err.println("Semantic Exception.");
+	        e.printStackTrace(); // prints to stderr
+		}
+		catch (Error e)
+		{
+	        System.err.println("Error.");
+	        System.err.println(e.getMessage());
+		}
       
     }
-}
+
 	public static void cleanJumps(ArrayList<Quad> list) // consolidate linked jumps in quads
 	{    
 		for (int i = 0; i<list.size(); i++)	{
@@ -302,7 +301,7 @@ public class JRR
 		int cn = quad_list.get(i).arg2next;
 		int a = quad_list.get(i).result;
 		int an = quad_list.get(i).renext;
-		System.out.println("Quad "+i);
+		//System.err.println("Quad "+i);
 		switch (quad_list.get(i).op)	{		
 			// ASSIGNMENT
 			case "mov":
@@ -807,7 +806,6 @@ public class JRR
 				rm = new RegManager(8, memory, symbol_table, inst_list);
 
 				inst_list.add("XJMP\t"+a); // pass the quad number to it, not the instruction number.
-				//System.out.println("XJMP\t"+a+"\n");
 				break;
 				
 			case "jeqz":
@@ -822,8 +820,7 @@ public class JRR
 				}
 
 				inst_list.add("MOVL\t"+"%R"+reg+",\t"+"%EAX"+"\n");
-				inst_list.add("XJZZ\t"+a); // should be JZ
-				//System.out.println("XJZZ\t"+a+"\n");
+				inst_list.add("XJZZ\t"+a); // should be JZ				
 
 				rm = new RegManager(8, memory, symbol_table, inst_list);	// does not produce insts
 				
@@ -845,7 +842,6 @@ public class JRR
 				inst_list.add("MOVL"+"\t"+"%R"+reg+",\t"+"%EAX"+"\n");
 
 				inst_list.add("RET\n"); 
-				//System.out.println("RET\n");
 				break;
 				
 			case "exit":
@@ -861,8 +857,9 @@ public class JRR
 	public static void genCode(ArrayList<Quad> list)	{
 		int crt = 0;		
 		int next = crt+1;
-		while (next<list.size())		{			// ----- PREPARE ELIMINATORS FOR CURRENT BLOCK ----- //
-			while ( (!list.get(next).leader) && (next<list.size()) ) next++;
+		while (crt<list.size())		{
+			//next++;			// ----- PREPARE ELIMINATORS FOR CURRENT BLOCK ----- //
+			while ( (next<list.size()) && (!list.get(next).leader) ) next++;
 			// crt, next are leaders of current and next basic blocks
 
 			// ----- PERFORM LIVE VARIABLE ANALYSIS ----- //
@@ -873,8 +870,7 @@ public class JRR
 			// -------- Scan Block Backwards -------- //
 			for (int i = next-1; i >= crt; i--)			{
 				Quad q = list.get(i);
-				//System.out.println(q);
-				if (q.op.startsWith("j") || q.op.startsWith("ret"))
+				if (q.op.startsWith("j") || q.op.startsWith("ret") || q.op.startsWith("exit")) // only mess with quads with symbols. 
 					continue; 
 				
 				// Symbol Table - > Quads				
@@ -887,29 +883,23 @@ public class JRR
 				symbol_table.get(q.result).nextuse = -1;
 				if (q.arg2 >-1)
 					symbol_table.get(q.arg2).nextuse = i;
-				symbol_table.get(q.arg1).nextuse = i;
-
-				//System.out.println("\t"+q);			}
+				symbol_table.get(q.arg1).nextuse = i;			}
 			
 			// ----- GENERATE CODE ----- //
-			for (int i = crt; i < next; i++)				quad2code(i);
+			for (int i = crt; i < next; i++)
+			{			  				quad2code(i);
+				if (list.get(i).op.startsWith("exit")) return;
+			}
 
 			// ----- GENERATE STORAGE INSTUCTIONS ----- //
 			for (Symbol s: symbol_table) s.store(memory, inst_list); // Leave in Registers
-			/*for (Symbol sb: symbol_table)
-				{
-					sb.store(memory);
-					sb.regloc = -1;						
-				}*/
 
 			rm = new RegManager(8, memory, symbol_table, inst_list);
 
 			// END OF THIS BLOCK //
-			System.out.println("This block is: "+crt+"\t"+next);
 			crt = next;
 			next++; // when crt is exit, next is oob
-		}
-		quad2code(next-1);	}
+		}	}
 }
 
 PARSER_END(JRR)
@@ -941,6 +931,7 @@ TOKEN : // Reserved Words
 | < IF:  "if" >
 | < RETURN:  "return" >
 | < WHILE:  "while" >
+| < SC:  ";" >
 }
 
 TOKEN : // ID and Digits
@@ -954,254 +945,321 @@ TOKEN : // ID and Digits
 
 void program():{}
 {
-	< LBRACE > (statement())* < RBRACE > <EOF>	{
-		quad_list.add(new Quad("exit",-10,-10,-10));	}	
+	try	{		< LBRACE > (statement())* < RBRACE > <EOF>		{if (success) {
+			quad_list.add(new Quad("exit",-10,-10,-10));					}}
+	}	 catch	(ParseException e) {
+		System.err.println("Trying to parse the program, but...");
+		System.err.println(e.toString()); 	}
 }
 
 void compound():{}
 {
-	< LBRACE > (statement())* < RBRACE > 
+	try	{
+		< LBRACE > (statement())* < RBRACE >
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a compound, but...");
+		System.err.println(e.toString()); 
+	}
 }
 
 void statement():{int a; int t1, t2; }
 {
-	//========== COMPOUND ===========
-	compound() {}
-	|
+	try	{
+		//========== COMPOUND ===========
+		compound() {}
+		|
+		
+		//========== WHILE CLAUSE ===========
+		< WHILE >	{if (success) {
+			loop_stack.push(quad_list.size());		}}
+		test()  {if (success) {
+			a = semantic_stack.pop();
+			loop_stack.push(quad_list.size());
+			quad_list.add(new Quad("jeqz",a,-10,-1));		}}
+		statement() {if (success) {
+			t1 = loop_stack.pop(); // where loop body(conditional jump) starts
+			t2 = loop_stack.pop(); // where loop testing block starts 
+			quad_list.add(new Quad("jmp",-10,-10,t2));
+			quad_list.get(t1).result = quad_list.size();
+		}}
+		|
 	
-	//========== WHILE CLAUSE ===========
-	< WHILE >	{
-		loop_stack.push(quad_list.size());	}
-	test()  {
-		a = semantic_stack.pop();
-		loop_stack.push(quad_list.size());
-		quad_list.add(new Quad("jeqz",a,-10,-1));	}
-	statement() {
-		t1 = loop_stack.pop(); // where loop body(conditional jump) starts
-		t2 = loop_stack.pop(); // where loop testing block starts 
-		quad_list.add(new Quad("jmp",-10,-10,t2));
-		quad_list.get(t1).result = quad_list.size();
-	}
-	|
-
-	//========== IF CLAUSE ===========
-	< IF > test()	{
-		t1 = quad_list.size(); //quad_list.size() MEANS NextQuad
-		a = semantic_stack.pop();
-		quad_list.add(new Quad("jeqz",a,-10,-1));
-		cdtn_stack.push(t1); 	} statement() (LOOKAHEAD(2) < ELSE >   {
-		t1 = quad_list.size(); 
-		quad_list.add(new Quad("jmp",-10,-10,-1));
-		t2 = cdtn_stack.pop();
-		quad_list.get(t2).result = quad_list.size();
-		cdtn_stack.push(t1);     	} statement())? {
-		t1 = cdtn_stack.pop();
-		quad_list.get(t1).result = quad_list.size();
-	}
-	|
-
-	//========== EXPRESSION ===========
-	expression() ";" {
-		semantic_stack.pop();
-	}
-	|
-
-	//========== BREAK CLAUSE ===========
-	< BREAK >";" { //TODO implement BREAK
-		t1 = loop_stack.pop();
-		t2 = quad_list.size();
-		quad_list.add(new Quad("jmp",-10,-10,t1));
-		quad_list.get(t1).result = t2;
-		loop_stack.push(t2);
-	}
-	|
-
-	//========== RETURN CLAUSE ===========
-	< RETURN > expression()";" {
-		a = semantic_stack.pop();
-		quad_list.add(new Quad("ret",a,-10,-10));
-	}
-	|
+		//========== IF CLAUSE ===========
+		< IF > test()	{if (success) {
+			t1 = quad_list.size(); //quad_list.size() MEANS NextQuad
+			a = semantic_stack.pop();
+			quad_list.add(new Quad("jeqz",a,-10,-1));
+			cdtn_stack.push(t1); 		}} statement() (LOOKAHEAD(2) < ELSE >   {if (success) {
+			t1 = quad_list.size(); 
+			quad_list.add(new Quad("jmp",-10,-10,-1));
+			t2 = cdtn_stack.pop();
+			quad_list.get(t2).result = quad_list.size();
+			cdtn_stack.push(t1);     		}} statement())? {if (success) {
+			t1 = cdtn_stack.pop();
+			quad_list.get(t1).result = quad_list.size();
+		}}
+		|
 	
-	//========== CONTINUE CLAUSE ===========
-	< CONTINUE > ";" {
-		t2 = loop_stack.pop();
-		t1 = loop_stack.peek(); // the starting point of test is one into the top of stack
-		loop_stack.push(t2);
-		quad_list.add(new Quad("jmp",-10,-10,t1));
-	}
-	|
-
-	//========== SEMICOLON ===========
-	";" {
+		//========== EXPRESSION ===========
+		expression() < SC >  {if (success) {
+			semantic_stack.pop();
+		}}
+		|
+	
+		//========== BREAK CLAUSE ===========
+		< BREAK >< SC > {if (success) { 
+			t1 = loop_stack.pop();
+			t2 = quad_list.size();
+			quad_list.add(new Quad("jmp",-10,-10,t1));
+			quad_list.get(t1).result = t2;
+			loop_stack.push(t2);
+		}}
+		|
+	
+		//========== RETURN CLAUSE ===========
+		< RETURN > expression()< SC > {if (success) {
+			a = semantic_stack.pop();
+			quad_list.add(new Quad("ret",a,-10,-10));
+		}}
+		|
+		
+		//========== CONTINUE CLAUSE ===========
+		< CONTINUE > < SC > {if (success) {
+			t2 = loop_stack.pop();
+			t1 = loop_stack.peek(); // the starting point of test is one into the top of stack
+			loop_stack.push(t2);
+			quad_list.add(new Quad("jmp",-10,-10,t1));
+		}}
+		|
+	
+		//========== SEMICOLON ===========
+		< SC > {
+		}
+	}	 catch	(ParseException e) {
+		System.err.println("Trying to parse a statement, but...");
+		error_skipto(SC);
 	}
 }
 void test():{}
 {
-	< LPAREN > expression() < RPAREN > 
+	try	{
+		< LPAREN > expression() < RPAREN >
+	}	 catch	(ParseException e) {
+		System.err.println("Trying to parse a test \"(CONDITION)\" for a loop or conditional, but...");
+		throw e;
+	}
 }
 
 void expression():{} 
 {
-	LOOKAHEAD(2)  
-	{ Token id; }
-	id=< ID >	{
-		Symbol s = new Symbol(id.image, "id");
-		int i = symbol_table.indexOf(s);
-		if (i<0) symbol_table.add(s);
-		i = symbol_table.indexOf(s);
-		semantic_stack.push(i);
+	try	{
+		LOOKAHEAD(2)  
+		{ Token id; }	
+		id=< ID >	{if (success) {
+			Symbol s = new Symbol(id.image, "id");
+			int i = symbol_table.indexOf(s);
+			if (i<0) symbol_table.add(s);
+			i = symbol_table.indexOf(s);
+			semantic_stack.push(i);
+		}}
+		"=" expression() {if (success) {
+			int a = semantic_stack.pop(); //the latter
+			int b = semantic_stack.pop(); //the first (destination)
+			quad_list.add(new Quad("mov",a,-10,b));
+			semantic_stack.push(b);
+		}}
+		|
+		condition()
+	}	 catch	(ParseException e) {
+		System.err.println("Trying to parse an expression, but...");
+		throw e;
 	}
-	"=" expression() {
-		int a = semantic_stack.pop(); //the latter
-		int b = semantic_stack.pop(); //the first (destination)
-		quad_list.add(new Quad("mov",a,-10,b));
-		semantic_stack.push(b);
-	}
-	|
-	condition() 
 }
 
-void condition():{int a, b, c; int t1, t2;}
+void condition():{int a, b, c; int t1, t2; int dest=0;}
 {
-	disjunction() ("?"	{
-		t1 = quad_list.size();
-		a = semantic_stack.pop();
-		quad_list.add(new Quad("jeqz",a,-10,-1));
-		cdtn_stack.push(t1);
-		int dest = symbol_table.size();
-		symbol_table.add(new Symbol()); // the place to be assigned
+	try	{
+		disjunction() ("?"	{if (success) {
+			t1 = quad_list.size();
+			a = semantic_stack.pop();
+			quad_list.add(new Quad("jeqz",a,-10,-1));
+			cdtn_stack.push(t1);
+			dest = symbol_table.size();
+			symbol_table.add(new Symbol()); // the place to be assigned
+		}}
+		expression() ":"	{if (success) {
+			b = semantic_stack.pop();
+			quad_list.add(new Quad("mov",b,-10,dest));
+			t1 = quad_list.size(); 
+			quad_list.add(new Quad("jmp",-10,-10,-1));
+			t2 = cdtn_stack.pop();
+			quad_list.get(t2).result = quad_list.size();
+			cdtn_stack.push(t1);
+		}}
+		condition() 	{if (success) {
+			c = semantic_stack.pop();
+			quad_list.add(new Quad("mov",c,-10,dest));
+			t1 = cdtn_stack.pop();
+			quad_list.get(t1).result = quad_list.size();  
+			semantic_stack.push(dest);
+		}}
+		)?
+	}	 catch	(ParseException e) {
+		System.err.println("Trying to parse a condition: ?... :... , but...");
+		throw e;
 	}
-	expression() ":"	{
-		b = semantic_stack.pop();
-		quad_list.add(new Quad("mov",b,-10,dest));
-		t1 = quad_list.size(); 
-		quad_list.add(new Quad("jmp",-10,-10,-1));
-		t2 = cdtn_stack.pop();
-		quad_list.get(t2).result = quad_list.size();
-		cdtn_stack.push(t1);
-	}
-	condition() 	{
-		c = semantic_stack.pop();
-		quad_list.add(new Quad("mov",c,-10,dest));
-		t1 = cdtn_stack.pop();
-		quad_list.get(t1).result = quad_list.size();  
-		semantic_stack.push(dest);
-	}
-	)?
 }
 
 void disjunction():{int a, b, c;}
 {
-	conjunction() ("|" conjunction()	{
-		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad("|",c,b,a));
-		semantic_stack.push(a);
+	try	{
+		conjunction() ("|" conjunction()	{if (success) {
+			a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad("|",c,b,a));
+			semantic_stack.push(a);
+		}}
+		)* 
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a disjuction \"|\", but...");
+		throw e;
 	}
-	)*  
 }
 
 void conjunction():{int a, b, c;}
 {
-	comparison() ("&" comparison()	{
-		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad("&",c,b,a));
-		semantic_stack.push(a);	}
-	)*
+	try	{
+		comparison() ("&" comparison()	{if (success) {
+			a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad("&",c,b,a));
+			semantic_stack.push(a);		}}
+		)*
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a conjuction \"&\", but...");
+		throw e;
+	}
 }
 
 void comparison():{int a, b, c;}
 {
-	relation() ("==" relation() {
-  		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad("cpr",c,b,a));
-		semantic_stack.push(a);
+	try	{
+		relation() ("==" relation() {if (success) {
+	  		a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad("cpr",c,b,a));
+			semantic_stack.push(a);
+		}}
+		)?
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a comparison \"==\", but...");
+		throw e;
 	}
-	)? 
 }
 
-void relation():{int a, b, c;String op;}
+void relation():{int a, b, c; String op;}
 {
-	sum() (op=relop() sum()	{
-  		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad(op,c,b,a));
-		semantic_stack.push(a);
+	try	{
+		sum() (op=relop() sum()	{if (success) {
+	  		a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad(op,c,b,a));
+			semantic_stack.push(a);
+		}}
+		)?
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a comparison < or >, but...");
+		throw e;
 	}
-	)?
 }
 
 void sum():{int a, b, c;String op;}
 {
-	term()( op=addop() term()	{
-  		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad(op,c,b,a));
-		semantic_stack.push(a);	}
-	)*
+	try	{
+		term()( op=addop() term()	{if (success) {
+	  		a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad(op,c,b,a));
+			semantic_stack.push(a);		}}
+		)*
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a sum + or -, but...");
+		throw e;
+	}
 }
 
 void term():{int a, b, c;String op;}
 {
-	factor() (op=mulop() factor() {		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		c = semantic_stack.pop();
-		quad_list.add(new Quad(op,c,b,a));
-		semantic_stack.push(a);
+	try	{
+		factor() (op=mulop() factor() {if (success) {			a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			c = semantic_stack.pop();
+			quad_list.add(new Quad(op,c,b,a));
+			semantic_stack.push(a);
+		}}
+		)*
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a sum * or / or %, but...");
+		throw e;
 	}
-	)*
 }
 
-void factor():{}
+void factor():{int a, b; String op;}
 {
-	primary()
-	|
-	{int a, b; String op;}
-	op=unaryop() primary() {		a = symbol_table.size();
-		symbol_table.add(new Symbol());
-		b = semantic_stack.pop();
-		quad_list.add(new Quad(op,b,-10,a));
-		semantic_stack.push(a);
+	try	{
+		primary()
+		|		
+		op=unaryop() primary() {if (success) {			a = symbol_table.size();
+			symbol_table.add(new Symbol());
+			b = semantic_stack.pop();
+			quad_list.add(new Quad(op,b,-10,a));
+			semantic_stack.push(a);
+		}}
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a factor ! or -(negation), but...");
+		throw e;
 	}
 }
 
 void primary():{int a; Symbol s;}
 {  
-	{ Token id; }
-	id = < ID >  {
-		s = new Symbol(id.image, "id");
-		a = symbol_table.indexOf(s);
-		if (a<0)		{			symbol_table.add(s);
-			System.err.println("Reference before assignment: "+id.image);
-		}
-		a = symbol_table.indexOf(s);
-		semantic_stack.push(a);
-    }
-    |
-    {Token i;}
-    i = < INT >	{		//semantic_stack.push(Integer.parseInt(i.image));
-		s = new Symbol(i.image, "int");
-		a = symbol_table.indexOf(s);
-		if (a<0) symbol_table.add(s);
-		a = symbol_table.indexOf(s);
-		semantic_stack.push(a);
+	try	{
+		{ Token id; }
+		id = < ID >  {if (success) {
+			s = new Symbol(id.image, "id");
+			a = symbol_table.indexOf(s);
+			if (a<0)			{				symbol_table.add(s);
+				System.err.println("Warning: Reference before assignment: "+id.image+" at Line "+id.beginLine+", Column "+id.beginColumn+".");
+			}
+			a = symbol_table.indexOf(s);
+			semantic_stack.push(a);
+	    }}
+	    |
+	    {Token i;}
+	    i = < INT >	{if (success) {			//semantic_stack.push(Integer.parseInt(i.image));
+			s = new Symbol(i.image, "int");
+			a = symbol_table.indexOf(s);
+			if (a<0) symbol_table.add(s);
+			a = symbol_table.indexOf(s);
+			semantic_stack.push(a);
+		}}
+		|
+		< LPAREN > expression() < RPAREN >
+	}	catch	(ParseException e) {
+		System.err.println("Trying to parse a primary id or integer, but...");
+		throw e;
 	}
-	|
-	< LPAREN > expression() < RPAREN > 
 }
 
 String relop():{}
@@ -1232,6 +1290,25 @@ String unaryop():{}
 	"-"{return "NEG";}
 	|
 	"!"{return "NOT";}
+}
+
+JAVACODE
+ParseException error_skipto(int kind) {
+  // From: https://javacc.java.net/doc/errorrecovery.html
+  ParseException e = generateParseException();  // generate the exception object.
+  System.err.println(e.toString());  // print the error message
+  success = false;
+  Token t;
+  do {
+    t = getNextToken();
+    
+  } while (t.kind != kind);
+    // The above loop consumes tokens all the way up to a token of
+    // "kind".  We use a do-while loop rather than a while because the
+    // current token is the one immediately before the erroneous token
+    // (in our case the token immediately before what should have been
+    // "if"/"while".
+   return e;
 }
 
 // E: E+T|T  becomes E: T(+T)*
